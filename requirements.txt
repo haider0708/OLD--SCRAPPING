@@ -1,0 +1,14 @@
+httpx[http2]>=0.24
+selectolax>=0.3.21
+PyYAML>=6.0.1
+aiofiles>=23.1.0
+ujson>=5.8.0
+tqdm>=4.66.1
+playwright>=1.40.0
+pymongo[srv]>=4.6.1
+python-dotenv>=1.0.0
+certifi>=2024.2.2
+fastapi 
+uvicorn 
+pydantic
+requests

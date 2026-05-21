@@ -1,0 +1,55 @@
+# Scoop Gaming - Hybrid (Playwright categories + httpx listings/details)
+# Platform: PrestaShop + TvCMS MegaMenu
+base_url: "https://www.scoopgaming.com.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 15000
+  wait_after_load: 2
+
+selectors:
+  frontpage:
+    wait_selector: "div#tvdesktop-megamenu ul.menu-content > li.level-1 > a"
+    nav_container: "div#tvdesktop-megamenu ul.menu-content"
+    top_level_blocks: "ul.menu-content > li.level-1"
+    top_level_link: "a"
+    top_level_name_span: "a > span"
+    low_items_dropdown: "ul.menu-dropdown > li.level-2 > a"
+    sub_items_dropdown: "li.level-2.parent > ul.menu-dropdown > li.level-3 > a"
+    low_items_mega: "div.menu-dropdown li.tvmega-menu-link.item-header > a"
+    sub_items_mega: "div.menu-dropdown li.tvmega-menu-link.item-line > a"
+
+  category_page:
+    grid_scope: ".tvproduct-wrapper.grid"
+    item_selector: "article.product-miniature.js-product-miniature"
+    item_id_attr: "data-id-product"
+    item_name: "h6[itemprop='name']"
+    item_name_alt: "div.tvproduct-name.product-title a h6"
+    item_url: "div.tvproduct-name.product-title a"
+    item_image: "img.tvproduct-defult-img.tv-img-responsive"
+    item_image_attrs: ["src"]
+    item_price: ".product-price-and-shipping span.price"
+    item_old_price: ".product-price-and-shipping span.regular-price"
+    pagination_next: "a.next.js-search-link[rel='next']"
+    pagination_param: "page"
+
+  product_page:
+    title: "h1.h1[itemprop='name']"
+    price: "div.current-price span.price[itemprop='price']"
+    price_content_attr: "content"
+    old_price: "div.product-discount span.regular-price"
+    sku: "div.product-reference span[itemprop='sku']"
+    brand: "a.tvproduct-brand img"
+    brand_attr: "src"
+    availability: "span#product-availability"
+    availability_schema: "link[itemprop='availability'][href]"
+    description: "div[id^='product-description-short-']"
+    full_description: "div.tab-pane#description div.product-description"
+    specs_container: "div.product-features dl.data-sheet"
+    specs_key: "dt.name"
+    specs_value: "dd.value"
+    image_main: "div.tvproduct-image-slider img[itemprop='image']"
+    image_thumbnails: "img.thumb.js-thumb"

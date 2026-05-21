@@ -1,0 +1,110 @@
+# ============================================================
+# Darty.tn Scraper Configuration
+# ============================================================
+# Site: https://www.darty.tn (Tunisian E-commerce)
+# Platform: TBD
+
+site_name: "darty"
+base_url: "https://www.darty.tn"
+
+# === SCRAPER SETTINGS ===
+settings:
+  max_retries: 3
+  retry_delay: 5
+  max_consecutive_failures: 10
+  page_timeout: 60000
+  wait_after_load: 3
+
+# === SELECTORS ===
+selectors:
+  # --- FRONTPAGE (Category Hierarchy) ---
+  # Structure: globomenu with tabs
+  # - Top-level: li[data-tab-index] in ul.globomenu-tab-links
+  #   IDs: 134, 135, 160, 161, 162, 163, 165, 167
+  # - Low-level: li.globomenu-item-header inside li.globomenu-tab-content  
+  # - Subcategory: li.globomenu-item-normal inside low-level items
+  frontpage:
+    # Navigation container
+    nav_container: "ul.globomenu-tab-links"
+    
+    # Top-level categories (tabs)
+    top_level_blocks: "li[data-tab-index]"
+    top_level_link: "a"
+    top_category_ids: [134, 135, 160, 161, 162, 163, 165, 167]
+    
+    # Tab content containers
+    tab_content: "li.globomenu-tab-content"
+    
+    # Low-level categories (headers in submenu)
+    low_level_blocks: "li.globomenu-item-header"
+    low_level_link: "a"
+    
+    # Subcategories (normal items under headers)
+    subcategory_blocks: "li.globomenu-item-normal"
+    subcategory_link: "a"
+
+  # --- CATEGORY PAGE (Product Listings) ---
+  category_page:
+    wait_selector: "#js-product-list"
+    
+    # Product list container
+    product_list: "#js-product-list > div.products"
+    
+    # Product item container (article with data-id-product)
+    item_selector: "article.product-miniature"
+    
+    # Within each item:
+    product_id_attr: "data-id-product"
+    product_link: "div.product-description h3 a"
+    product_title: "div.product-description h3 a"
+    
+    # Pagination - uses ?page=N parameter
+    # "Voir plus" button loads more, but standard pagination exists in hidden ul
+    pagination_container: "nav.pagination"
+    pagination_next: "a.next.js-search-link"
+    pagination_param: "page"
+
+  # --- PRODUCT PAGE (Detail Scraping) ---
+  product_page:
+    # Title: h1 in productblock-image section
+    title: "div.productblock-image h1"
+    
+    # Price: current price in product-price span
+    price: "div.product-price span"
+    
+    # Old price (before discount)
+    old_price: "div.product-discount .regular-price"
+    
+    # Discount percentage
+    discount: "div.product-discount .discount-percentage"
+    
+    # SKU/Reference from meta or specs
+    sku: "meta[itemprop='sku']"
+    sku_attr: "content"
+    
+    # Brand (if available)
+    brand: ".product-manufacturer img"
+    brand_attr: "alt"
+    
+    # Stock/availability
+    stock: "#product-availability"
+    
+    # Description tab content
+    description: "#description .product-description"
+    
+    # Specs/Features - two sections
+    features_section: "div.productblock-features section"
+    specs_section: "#product-details section.product-features"
+    specs_row: "dl.data_sheet"
+    specs_key: "dt.name"
+    specs_value: "dd.value"
+    
+    # Images
+    main_image: ".product-cover img"
+    main_image_attr: "src"
+    gallery_images: ".product-images img, .js-thumb img"
+
+# === NOTES ===
+# - Platform: PrestaShop based
+# - Products have features and detailed specs in separate sections
+# - Price may have discount with regular-price and discount-percentage

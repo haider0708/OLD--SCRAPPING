@@ -1,0 +1,105 @@
+# ============================================================
+# SpaceNet.tn Scraper Configuration
+# ============================================================
+# Site: https://spacenet.tn (Tunisian E-commerce)
+# Platform: To be determined based on inspection
+
+site_name: "spacenet"
+base_url: "https://spacenet.tn"
+
+# === SCRAPER SETTINGS ===
+settings:
+  max_retries: 3
+  retry_delay: 5
+  max_consecutive_failures: 10
+  page_timeout: 60000
+  wait_after_load: 3
+
+# === SELECTORS ===
+selectors:
+  # --- FRONTPAGE (Category Hierarchy) ---
+  frontpage:
+    # Menu button to click (to reveal menu)
+    menu_button: "#spverticalmenu_1 > div > span"
+    
+    # Menu container
+    menu_container: "#sp-vermegamenu > ul"
+    
+    # Top-level categories: li items directly under menu ul
+    top_level_blocks: "#sp-vermegamenu > ul > li"
+    top_level_link: "a"
+    
+    # Low-level categories: inside top-level li > div > ul > li
+    low_level_container: "div > ul"
+    low_level_blocks: "li"
+    low_level_link: "a"
+    low_level_name: "a > span, a"
+    
+    # Subcategories: inside low-level li > div > ul > li
+    subcategory_container: "div > ul"
+    subcategory_blocks: "li"
+    subcategory_link: "a"
+    subcategory_name: "a > span, a"
+
+  # --- CATEGORY PAGE (Product Listings) ---
+  category_page:
+    wait_selector: ".js-product-miniature"
+    
+    # Product item container
+    item_selector: ".js-product-miniature, .product-miniature"
+    
+    # Within each item:
+    product_id_selector: "[data-id-product]"
+    product_id_attr: "data-id-product"
+    product_link: "a.thumbnail.product-thumbnail"
+    product_title: "h2.product_name a"
+    product_price: ".price"
+    product_image: "img.product_image"
+    product_reference: ".product-reference span"
+    product_stock: ".product-quantities .label"
+    product_brand: ".product-manufacturer img"
+    
+    # Pagination
+    pagination_container: "nav.pagination"
+    pagination_next: "a.next.js-search-link"
+    pagination_links: ".page-list li a.js-search-link"
+    pagination_current: ".page-list li.current a"
+    pagination_param: "page"
+
+  # --- PRODUCT PAGE (Detail Scraping) ---
+  product_page:
+    # Main containers
+    image_container: "#main .product_left"
+    info_container: "#main .product_right"
+    features_container: "#product-details > section"
+    
+    # Title
+    title: "h1.h1, h1[itemprop='name'], .product_right h1"
+    
+    # SKU/Reference
+    sku: ".product-reference span"
+    
+    # Brand
+    brand_img: ".product-manufacturer img"
+    
+    # Pricing
+    # Pricing
+    price: ".current-price span[content], .current-price span"
+    price_attr: "content"
+    old_price: ".product-discount .regular-price, .regular-price"
+    discount: ".discount-percentage, .discount"
+    
+    # Stock
+    stock: "#product-availability, .product-availability"
+    
+    # Description
+    description: "#description .product-description, .product-description"
+    
+    # Specifications (features)
+    specs_container: "#product-details > section, .product-features"
+    specs_name: "dt.name, dt"
+    specs_value: "dd.value, dd"
+    
+    # Images
+    main_image: ".product_left img, .product-cover img"
+    gallery_images: ".product-images img, .js-thumb img"

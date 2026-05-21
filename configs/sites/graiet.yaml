@@ -1,0 +1,100 @@
+# ============================================================
+# Graiet.tn Scraper Configuration
+# ============================================================
+# Site: https://www.graiet.tn (Tunisian E-commerce)
+# Platform: Magento-based with mega menu navigation
+
+site_name: "graiet"
+base_url: "https://www.graiet.tn"
+
+# === SCRAPER SETTINGS ===
+settings:
+  max_retries: 3
+  retry_delay: 5
+  max_consecutive_failures: 10
+  request_timeout: 30
+
+# === SELECTORS ===
+selectors:
+  # --- FRONTPAGE (Category Hierarchy) ---
+  frontpage:
+    # Top-level categories: ul.horizontal-list > li.ui-menu-item.level0
+    top_level_blocks: "ul.horizontal-list > li.ui-menu-item.level0"
+    top_level_name: "a.level-top > span"
+    top_level_link: "a.level-top"
+    
+    # Subcategories: ul.subchildmenu > li.ui-menu-item.level1
+    subcategory_blocks: "ul.subchildmenu > li.ui-menu-item.level1"
+    subcategory_link: "a"
+    
+    # Child categories (optional, not used in original)
+    child_category_blocks: ""
+
+  # --- CATEGORY PAGE (Product Listings) ---
+  category_page:
+    wait_selector: "li.item.product.product-item"
+    
+    # Product item container
+    item_selector: "li.item.product.product-item"
+    
+    # Within each item:
+    product_id_selector: "div.product-item-info"
+    product_id_attr: "id"
+    product_link: "a.product-item-link"
+    product_title: "a.product-item-link"
+    product_price: ".price-wrapper .price"
+    product_image: ".products-image-hover, img.products-image-hover, .product-image-photo"
+    
+    # Pagination
+    pagination_next: "li.pages-item-next a.action.next"
+    pagination_links: "ul.pages-items li.item a.page"
+    pagination_current: "li.item.current"
+    pagination_param: "p"  # Default Magento pattern
+
+  # --- PRODUCT PAGE (Detail Scraping) ---
+  product_page:
+    # Title
+    title: "h1.page-title span.base"
+    
+    # SKU
+    sku: "div.product.attribute.sku div.value"
+    
+    # Pricing
+    price: "span[data-price-amount]"
+    price_attr: "data-price-amount"
+    currency: "meta[itemprop='priceCurrency']"
+    currency_attr: "content"
+    
+    # Availability
+    availability: "div.stock.available, div.stock.unavailable"
+    
+    # Description/Overview
+    description: "div.product.attribute.overview div.value"
+    
+    # Brand
+    brand_link: "div.product-page-brand-common-view ul.product-brands li.brand-item a"
+    
+    # Category breadcrumbs
+    category_links: "div.product-category a"
+    
+    # Specifications table
+    specs_table: "table#product-attribute-specs-table tbody tr"
+    specs_name: "th.col.label"
+    specs_value: "td.col.data"
+    
+    # Images
+    main_image: "meta[itemprop='image']"
+    main_image_attr: "content"
+    gallery_images: "div.gallery-img img.product-image-photo"
+
+# === HEADERS ===
+headers:
+  Accept-Language: "fr-FR,fr;q=0.9,en;q=0.8"
+
+# === NOTES ===
+# - Magento platform
+# - Uses mega menu navigation (ul.horizontal-list)
+# - No JavaScript required (use FastScraper)
+# - Pagination uses Magento default pattern
+# - Product ID is in div.product-item-info id attribute
+# - Price uses data-price-amount attribute

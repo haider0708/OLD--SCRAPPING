@@ -1,0 +1,66 @@
+# Pipeline Configuration
+# =====================
+
+# Sites to process (in order)
+# use_tor: true  → route through Tor pool (for sites that block/rate-limit)
+# use_tor: false → direct connection (default, faster, recommended when not blocked)
+sites:
+  - name: mytek
+    use_tor: false
+  - name: tunisianet
+    use_tor: false
+  - name: technopro
+    use_tor: false
+  - name: spacenet
+    use_tor: false
+  - name: jumbo
+    use_tor: false
+  - name: darty
+    use_tor: false
+  - name: graiet
+    use_tor: false
+  - name: batam
+    use_tor: false
+  - name: zoom
+    use_tor: false
+  - name: allani
+    use_tor: false
+  - name: expert_gaming
+    use_tor: false
+  - name: geant
+    use_tor: false
+  - name: mapara
+    use_tor: false
+  - name: parafendri
+    use_tor: false
+  - name: parashop
+    use_tor: false
+  - name: pharmacieplus
+    use_tor: false
+  - name: pharmashop
+    use_tor: false
+  - name: sbs
+    use_tor: false
+  - name: scoop
+    use_tor: false
+  - name: skymill
+    use_tor: false
+  - name: wiki
+    use_tor: false
+
+# Interval between pipeline runs (in minutes)
+# 720 = 12 hours (recommended for production)
+interval_minutes: 1440
+  
+# Data directory
+data_dir: "data"
+
+# Scraping Settings
+# -----------------
+scraping:
+  # Number of parallel workers for product scraping
+  workers: 16
+
+  # Number of parallel workers for detail scraping
+  detail_workers: 16
+

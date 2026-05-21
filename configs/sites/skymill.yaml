@@ -1,0 +1,50 @@
+# Skymill Informatique - Hybrid (Playwright categories + httpx listings/details)
+# Platform: PrestaShop + SP Mega Menu
+base_url: "https://skymil-informatique.com"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 2
+
+selectors:
+  frontpage:
+    wait_selector: "div#spverticalmenu_1 ul.level-1 > li.item-1 > a"
+    nav_container: "div#spverticalmenu_1 ul.level-1"
+    top_level_blocks: "ul.level-1 > li.item-1"
+    top_level_link: "a"
+    low_level_items: "div.dropdown-menu ul.level-2 > li.item-2 > a"
+
+  category_page:
+    item_selector: "article.product-miniature.js-product-miniature.sp-product-style1"
+    item_id_attr: "data-id-product"
+    item_name: "h2.h3.product-title a"
+    item_url: "h2.h3.product-title a"
+    item_image: ".product-image img[itemprop='image']"
+    item_image_attrs: ["src"]
+    item_price: "span.price[aria-label='Prix']"
+    item_price_meta: "meta[itemprop='price']"
+    item_old_price: "span.regular-price[aria-label='Prix de base']"
+    pagination_next: "a.next.js-search-link"
+    pagination_param: "page"
+
+  product_page:
+    title: "h1.product-name[itemprop='name']"
+    price: ".product-price span[itemprop='price']"
+    price_content_attr: "content"
+    old_price: ".regular-price"
+    sku: ".product-reference span[itemprop='sku']"
+    brand: "img.manufacturer-logo"
+    brand_attr: "src"
+    availability: "span#product-availability"
+    availability_schema: "link[itemprop='availability'][href]"
+    description: ".product-short-description"
+    specs_container: "section.product-features dl.data-sheet"
+    specs_key: "dt.name"
+    specs_value: "dd.value"
+    image_main: "img.js-qv-product-cover"
+    image_thumbnails: "img.thumb.js-thumb"
+    image_thumb_attr: "data-image-large-src"
