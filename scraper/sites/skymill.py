@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Skymill Informatique (skymil-informatique.com) specific scraper implementation.
-Hybrid: Playwright for all page fetches (site is behind Cloudflare),
-selectolax for HTML parsing.
+Skymill Shop (skymil-shop.com) specific scraper implementation.
+Full Playwright: site is a modern React/Next.js + Tailwind CSS store,
+all pages require JS execution. Categories at /catalogue/{slug}.
+base_url in config: skymil-informatique.com (redirects to skymil-shop.com).
 """
 
 import json
@@ -28,7 +29,7 @@ STEALTH_JS = 'Object.defineProperty(navigator, "webdriver", {get: () => undefine
 
 
 class SkymillScraper(FastScraper):
-    """Hybrid scraper for skymil-informatique.com (behind Cloudflare, requires Playwright for all fetches)."""
+    """Full-Playwright scraper for skymil-shop.com (modern React/Tailwind store)."""
 
     def __init__(self, logger: logging.Logger):
         super().__init__("skymill", logger)
@@ -42,11 +43,6 @@ class SkymillScraper(FastScraper):
     # ------------------------------------------------------------------
 
     async def _ensure_browser(self):
-        """Lazily start a shared Playwright browser with anti-detection.
-
-        Uses --headless=new (Chrome's new headless mode) which is less
-        detectable by Cloudflare than the old headless implementation.
-        """
         if self._browser is not None:
             return
         from playwright.async_api import async_playwright
@@ -65,7 +61,6 @@ class SkymillScraper(FastScraper):
         await self._pw_context.add_init_script(STEALTH_JS)
 
     async def _close_browser(self):
-        """Close the shared browser."""
         if self._browser:
             await self._browser.close()
             self._browser = None
@@ -78,23 +73,22 @@ class SkymillScraper(FastScraper):
     # ------------------------------------------------------------------
 
     async def download_frontpage(self):
-        """Download frontpage using shared Playwright browser."""
+        """Download frontpage using Playwright (React/Next.js, JS-rendered nav)."""
         output_path = self.html_dir / "frontpage.html"
         self.logger.info(f"📥 Downloading (Playwright): {self.base_url}")
-
-        fp = self.selectors.get("frontpage", {})
-        wait_sel = fp.get(
-            "wait_selector", "div#spverticalmenu_1 ul.level-1 > li.item-1 > a"
-        )
 
         await self._ensure_browser()
         page = await self._pw_context.new_page()
         try:
-            await page.goto(self.base_url, wait_until="domcontentloaded", timeout=60000)
+            await page.goto(self.base_url, wait_until="networkidle", timeout=60000)
+            # Wait for category nav links to be present
             try:
-                await page.wait_for_selector(wait_sel, timeout=15000)
+                await page.wait_for_selector(
+                    "nav[aria-label='Catégories populaires'] a, a[href*='/catalogue/']",
+                    timeout=15000,
+                )
             except Exception:
-                self.logger.warning(f"Wait selector '{wait_sel}' not found, continuing")
+                self.logger.warning("Category nav not found, continuing with page content")
             html = await page.content()
         finally:
             await page.close()
@@ -104,7 +98,7 @@ class SkymillScraper(FastScraper):
         return output_path
 
     # ------------------------------------------------------------------
-    # Override: Playwright-based fetch_html (replaces httpx)
+    # Override: Playwright-based fetch_html (replaces httpx for all pages)
     # ------------------------------------------------------------------
 
     async def fetch_html(self, url: str, raise_on_error: bool = False) -> Optional[str]:
@@ -121,9 +115,14 @@ class SkymillScraper(FastScraper):
         html = None
         error = None
         try:
-            resp = await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            resp = await page.goto(url, wait_until="networkidle", timeout=45000)
             status_code = resp.status if resp else None
             final_url = page.url
+            # Wait for product cards to appear (catalogue pages)
+            try:
+                await page.wait_for_selector("div.card-product, div[class*='card-product']", timeout=8000)
+            except Exception:
+                pass
             html = await page.content()
             if status_code and status_code >= 400:
                 error = f"HTTP {status_code}"
@@ -155,6 +154,23 @@ class SkymillScraper(FastScraper):
         }
 
     # ------------------------------------------------------------------
+    # Override: close browser when scraping finishes
+    # ------------------------------------------------------------------
+
+    async def run_full_scrape(
+        self, category_limit=None, product_limit=None, detail_limit=None, on_result=None
+    ):
+        try:
+            return await super().run_full_scrape(
+                category_limit=category_limit,
+                product_limit=product_limit,
+                detail_limit=detail_limit,
+                on_result=on_result,
+            )
+        finally:
+            await self._close_browser()
+
+    # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 
@@ -170,19 +186,20 @@ class SkymillScraper(FastScraper):
             return url
         if url.startswith("//"):
             return "https:" + url
+        # skymil-shop.com is the actual domain after redirect
+        base = "https://www.skymil-shop.com"
         if url.startswith("/"):
-            return f"{self.base_url}{url}"
-        return f"{self.base_url}/{url}"
+            return f"{base}{url}"
+        return f"{base}/{url}"
 
     def _parse_price(self, text: str) -> Optional[float]:
-        """Extract numeric price from text like '1 299,000 DT'."""
+        """Extract numeric price from text like '1 549 DT' or '1549 DT'."""
         if not text:
             return None
-        cleaned = re.sub(r"[^\d.,]", "", text).strip()
-        # Handle thousand separators: "1 299,000" → "1299.000"
-        cleaned = cleaned.replace(" ", "")
+        cleaned = re.sub(r"[^\d\s.,]", "", text).strip()
+        # Remove spaces used as thousand separators
+        cleaned = re.sub(r"\s+", "", cleaned)
         if "," in cleaned and "." in cleaned:
-            # e.g. "1.299,00" → "1299.00"
             cleaned = cleaned.replace(".", "").replace(",", ".")
         elif "," in cleaned:
             cleaned = cleaned.replace(",", ".")
@@ -192,73 +209,114 @@ class SkymillScraper(FastScraper):
             return None
 
     # ------------------------------------------------------------------
-    # Category extraction (from Playwright-rendered HTML)
+    # Category extraction — from rendered frontpage HTML
     # ------------------------------------------------------------------
 
     def extract_categories_from_html(self, html: str) -> dict:
-        """Extract 3-level category hierarchy from SP Mega Menu."""
+        """Extract categories from skymil-shop.com navigation.
+
+        Primary source: nav[aria-label='Catégories populaires'] quick links.
+        Secondary: megamenu dropdown links at /catalogue/{slug}.
+        """
         tree = HTMLParser(html)
-        fp = self.selectors.get("frontpage", {})
         categories = []
+        seen_urls = set()
 
-        top_blocks = tree.css(fp.get("top_level_blocks", "ul.level-1 > li.item-1"))
-        self.logger.info(f"Found {len(top_blocks)} top-level category blocks")
+        # Build a flat top-level list from the "Catégories populaires" nav
+        # These are direct /catalogue/* links displayed as pills
+        quick_nav = tree.css_first("nav[aria-label='Catégories populaires']")
+        if quick_nav:
+            for a in quick_nav.css("a[href]"):
+                href = a.attributes.get("href", "")
+                if not href or "/catalogue/" not in href:
+                    continue
+                abs_url = self._make_absolute_url(href)
+                if abs_url in seen_urls:
+                    continue
+                seen_urls.add(abs_url)
+                name = self._clean_text(a.text(strip=True))
+                if not name:
+                    continue
+                categories.append({
+                    "name": name,
+                    "url": abs_url,
+                    "level": "top",
+                    "low_level_categories": [],
+                })
 
-        for top_block in top_blocks:
-            top_link = top_block.css_first(fp.get("top_level_link", "a"))
-            if not top_link:
-                continue
+        # Also scan all anchor tags for /catalogue/ links as fallback
+        if not categories:
+            for a in tree.css("a[href*='/catalogue/']"):
+                href = a.attributes.get("href", "")
+                abs_url = self._make_absolute_url(href)
+                if abs_url in seen_urls:
+                    continue
+                seen_urls.add(abs_url)
+                name = self._clean_text(a.text(strip=True))
+                if not name or len(name) < 2:
+                    continue
+                categories.append({
+                    "name": name,
+                    "url": abs_url,
+                    "level": "top",
+                    "low_level_categories": [],
+                })
 
-            top_name = self._clean_text(top_link.text(strip=True))
-            top_url = top_link.attributes.get("href", "")
-            top_url = self._make_absolute_url(top_url)
+        # Group sub-categories: URLs like /catalogue/composants/ssd are children of /catalogue/composants
+        # Build hierarchy: find parent categories for child paths
+        top_cats = {}
+        sub_cats = []
+        for cat in categories:
+            path = cat["url"].replace("https://www.skymil-shop.com", "")
+            parts = [p for p in path.split("/") if p]
+            # e.g. ['catalogue', 'composants'] → top level
+            # e.g. ['catalogue', 'composants', 'ssd-nvme'] → sub of composants
+            if len(parts) == 2:
+                top_cats[cat["url"]] = cat
+            else:
+                sub_cats.append(cat)
 
-            top_cat = {
-                "name": top_name,
-                "url": top_url,
-                "level": "top",
-                "low_level_categories": [],
-            }
+        # Attach sub-categories to their parents
+        for sub in sub_cats:
+            path = sub["url"].replace("https://www.skymil-shop.com", "")
+            parts = [p for p in path.split("/") if p]
+            if len(parts) >= 3:
+                parent_url = f"https://www.skymil-shop.com/{parts[0]}/{parts[1]}"
+                if parent_url in top_cats:
+                    top_cats[parent_url]["low_level_categories"].append({
+                        "name": sub["name"],
+                        "url": sub["url"],
+                        "level": "low",
+                        "subcategories": [],
+                    })
+                else:
+                    # Parent not in top_cats yet — add it as a top cat
+                    top_cats[parent_url] = {
+                        "name": parts[1].replace("-", " ").title(),
+                        "url": parent_url,
+                        "level": "top",
+                        "low_level_categories": [{
+                            "name": sub["name"],
+                            "url": sub["url"],
+                            "level": "low",
+                            "subcategories": [],
+                        }],
+                    }
 
-            # Low-level: ul.level-2 > li.item-2 > a
-            low_links = top_block.css(
-                fp.get("low_level_items", "ul.level-2 > li.item-2 > a")
-            )
-            for low_link in low_links:
-                low_name = self._clean_text(low_link.text(strip=True))
-                low_url = low_link.attributes.get("href", "")
-                low_url = self._make_absolute_url(low_url)
-
-                low_cat = {
-                    "name": low_name,
-                    "url": low_url,
-                    "level": "low",
-                    "subcategories": [],
-                }
-
-                # Subcategories: from the parent li of this low_link
-                low_li = low_link.parent
-                if low_li:
-                    sub_links = low_li.css("ul.level-3 > li.item-3 > a")
-                    for sub_link in sub_links:
-                        sub_name = self._clean_text(sub_link.text(strip=True))
-                        sub_url = sub_link.attributes.get("href", "")
-                        sub_url = self._make_absolute_url(sub_url)
-
-                        low_cat["subcategories"].append(
-                            {
-                                "name": sub_name,
-                                "url": sub_url,
-                                "level": "subcategory",
-                            }
-                        )
-
-                top_cat["low_level_categories"].append(low_cat)
-
-            categories.append(top_cat)
+        final_cats = list(top_cats.values())
+        # Add any remaining flat cats (sub_cats without a parent found above)
+        added_urls = {c["url"] for c in final_cats}
+        for sub in sub_cats:
+            if sub["url"] not in added_urls:
+                final_cats.append({
+                    "name": sub["name"],
+                    "url": sub["url"],
+                    "level": "top",
+                    "low_level_categories": [],
+                })
 
         stats = {"top_level": 0, "low_level": 0, "subcategory": 0, "total_urls": 0}
-        for top in categories:
+        for top in final_cats:
             stats["top_level"] += 1
             if top.get("url"):
                 stats["total_urls"] += 1
@@ -276,42 +334,56 @@ class SkymillScraper(FastScraper):
             f"{stats['subcategory']} sub categories ({stats['total_urls']} URLs)"
         )
 
-        return {"categories": categories, "stats": stats}
+        return {"categories": final_cats, "stats": stats}
 
     # ------------------------------------------------------------------
-    # Product listing extraction (httpx HTML)
+    # Product listing extraction
     # ------------------------------------------------------------------
 
     def build_page_url(self, base_url: str, page_num: int) -> str:
-        if "?" in base_url:
-            return f"{base_url}&page={page_num}"
-        return f"{base_url}?page={page_num}"
+        """Pagination: ?page={n} query parameter."""
+        base = re.sub(r"[?&]page=\d+", "", base_url)
+        sep = "&" if "?" in base else "?"
+        return f"{base}{sep}page={page_num}"
 
     def extract_products_from_html(self, html: str) -> List[dict]:
-        """Extract products from PrestaShop category page."""
+        """Extract products from skymil-shop.com catalogue page (div.card-product)."""
         tree = HTMLParser(html)
-        cp = self.selectors.get("category_page", {})
         products = []
+        seen_urls = set()
 
-        items = tree.css(
-            cp.get("item_selector", "article.product-miniature.js-product-miniature")
-        )
+        items = tree.css("div.card-product")
 
         for item in items:
-            product_id = item.attributes.get(cp.get("item_id_attr", "data-id-product"))
-
-            # Name & URL
-            link = item.css_first(cp.get("item_name", "h2.h3.product-title a"))
-            if not link:
-                link = item.css_first("h3.product-title a")
-            if not link:
+            # URL — /produit/{slug}-tunisie
+            link_el = item.css_first("a[href*='/produit/']")
+            if not link_el:
+                # Try any link in the card
+                link_el = item.css_first("a[href]")
+            if not link_el:
                 continue
 
-            product_url = self._make_absolute_url(link.attributes.get("href", ""))
-            product_name = self._clean_text(link.text(strip=True))
-
-            if not product_id or not product_url:
+            href = link_el.attributes.get("href", "")
+            product_url = self._make_absolute_url(href)
+            if not product_url or product_url in seen_urls:
                 continue
+            seen_urls.add(product_url)
+
+            # Extract slug as product_id (no numeric ID available)
+            slug_match = re.search(r"/produit/(.+?)(?:-tunisie)?(?:/|$)", href)
+            product_id = slug_match.group(1) if slug_match else href.rsplit("/", 1)[-1]
+
+            # Name — font-heading font-bold text-sm link
+            name_el = item.css_first("a.font-heading, a.font-bold")
+            if not name_el:
+                # Try the title link
+                name_el = item.css_first("a[href*='/produit/']")
+            product_name = self._clean_text(name_el.text(strip=True)) if name_el else ""
+            if not product_name:
+                # Try img alt
+                img_el = item.css_first("img[alt]")
+                if img_el:
+                    product_name = self._clean_text(img_el.attributes.get("alt", ""))
 
             product_data = {
                 "id": product_id,
@@ -319,89 +391,110 @@ class SkymillScraper(FastScraper):
                 "name": product_name,
             }
 
-            # Price — prefer aria-label='Prix' span, then meta itemprop
-            price_el = item.css_first(
-                cp.get("item_price", "span.price[aria-label='Prix']")
-            )
-            if price_el:
-                content = price_el.attributes.get("content")
-                if content:
-                    try:
-                        product_data["price"] = float(content)
-                    except ValueError:
-                        product_data["price"] = self._parse_price(price_el.text())
-                else:
-                    product_data["price"] = self._parse_price(price_el.text())
+            # Price — current price (font-extrabold text-primary)
+            price_el = item.css_first("p.font-extrabold, p.text-primary, p[class*='font-extrabold']")
+            if not price_el:
+                # Grab first price-like element
+                for p in item.css("p"):
+                    text = p.text(strip=True)
+                    if "DT" in text or re.search(r"\d{3,}", text):
+                        price_el = p
+                        break
+            product_data["price"] = self._parse_price(price_el.text() if price_el else None)
+
+            # Old price — line-through (crossed out original price)
+            old_price_el = item.css_first("p.line-through, p[class*='line-through']")
+            if old_price_el:
+                product_data["old_price"] = self._parse_price(old_price_el.text())
+                if product_data.get("old_price") and product_data.get("price"):
+                    product_data["discount_percent"] = round(
+                        (1 - product_data["price"] / product_data["old_price"]) * 100
+                    )
+
+            # Availability — stock badge
+            stock_el = item.css_first("span[class*='gaming-success'], span[class*='text-gaming-success']")
+            if stock_el:
+                product_data["availability"] = self._clean_text(stock_el.text(strip=True))
+                product_data["available"] = True
             else:
-                meta_price = item.css_first(
-                    cp.get("item_price_meta", "meta[itemprop='price']")
-                )
-                if meta_price:
-                    try:
-                        product_data["price"] = float(
-                            meta_price.attributes.get("content", "")
-                        )
-                    except ValueError:
-                        product_data["price"] = None
-                else:
-                    product_data["price"] = None
-
-            # Old price
-            old_el = item.css_first(cp.get("item_old_price", "span.regular-price"))
-            if old_el:
-                product_data["old_price"] = self._parse_price(old_el.text())
-
-            # Brand
-            brand_el = item.css_first("span.product-manufacturer a.brand")
-            if brand_el:
-                product_data["brand"] = self._clean_text(brand_el.text(strip=True))
+                oos_el = item.css_first("span[class*='gaming-warning'], span[class*='gaming-danger']")
+                if oos_el:
+                    product_data["availability"] = self._clean_text(oos_el.text(strip=True))
+                    product_data["available"] = False
 
             # Image
-            img_el = item.css_first(cp.get("item_image", "img.product-thumbnail-first"))
-            if not img_el:
-                img_el = item.css_first("a.thumbnail.product-thumbnail img")
+            img_el = item.css_first("img[src], img[data-src]")
             if img_el:
-                for attr in cp.get("item_image_attrs", ["src", "data-src"]):
-                    src = img_el.attributes.get(attr)
-                    if src and not src.startswith("data:"):
-                        product_data["image"] = self._make_absolute_url(src)
-                        break
-
-            # Out of stock flag
-            oos_el = item.css_first("ul.product-flags > li.product-flag.out_of_stock")
-            if oos_el:
-                product_data["in_stock"] = False
+                src = img_el.attributes.get("src") or img_el.attributes.get("data-src")
+                if src and not src.startswith("data:"):
+                    product_data["image"] = src  # Supabase CDN URL, already absolute
 
             products.append(product_data)
 
+        if products:
+            return products
+
+        # JSON-LD fallback
+        for script in tree.css('script[type="application/ld+json"]'):
+            raw = (script.text() or "").strip()
+            if not raw:
+                continue
+            try:
+                data = json.loads(raw)
+            except Exception:
+                continue
+            blocks = data if isinstance(data, list) else [data]
+            for block in blocks:
+                if not isinstance(block, dict) or block.get("@type") != "Product":
+                    continue
+                url = self._make_absolute_url(block.get("url", ""))
+                if not url or url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                products.append({
+                    "id": str(block.get("sku") or block.get("productID") or ""),
+                    "url": url,
+                    "name": self._clean_text(block.get("name", "")),
+                    "price": self._parse_price(
+                        str((block.get("offers") or {}).get("price", ""))
+                    ),
+                })
         return products
 
     def extract_pagination_from_html(self, html: str) -> dict:
-        """Extract pagination from PrestaShop category page."""
+        """Extract pagination from skymil-shop.com catalogue page."""
         tree = HTMLParser(html)
-        cp = self.selectors.get("category_page", {})
 
         current_page = 1
         total_pages = 1
         has_next = False
 
-        page_links = tree.css("ul.page-list li a.js-search-link")
-        for el in page_links:
-            classes = el.attributes.get("class", "")
-            try:
-                num = int(el.text(strip=True))
-                if num > total_pages:
-                    total_pages = num
-                if "disabled" in classes or "current" in classes:
-                    current_page = num
-            except (ValueError, TypeError):
-                continue
+        # Look for page number buttons/links
+        # Pattern: ?page=N in href attributes
+        for a in tree.css("a[href*='page=']"):
+            href = a.attributes.get("href", "")
+            m = re.search(r"[?&]page=(\d+)", href)
+            if m:
+                try:
+                    num = int(m.group(1))
+                    if num > total_pages:
+                        total_pages = num
+                except ValueError:
+                    pass
 
-        next_link = tree.css_first(
-            cp.get("pagination_next", "a.next.js-search-link[rel='next']")
-        )
-        if next_link and "disabled" not in next_link.attributes.get("class", ""):
+        # Look for "next" indicators
+        next_el = tree.css_first("a[aria-label='Next'], a[aria-label='Suivant'], a[rel='next']")
+        if not next_el:
+            # Check for buttons with next/arrow text
+            for btn in tree.css("button, a"):
+                label = btn.attributes.get("aria-label", "")
+                if label.lower() in ("next", "suivant", "page suivante"):
+                    next_el = btn
+                    break
+        if next_el:
             has_next = True
+            if total_pages <= current_page:
+                total_pages = current_page + 1
 
         return {
             "current_page": current_page,
@@ -410,187 +503,163 @@ class SkymillScraper(FastScraper):
         }
 
     # ------------------------------------------------------------------
-    # Product detail scraping (httpx)
+    # Product detail scraping
     # ------------------------------------------------------------------
 
     async def scrape_product_details(self, url: str) -> dict:
-        """Scrape product details — JSON-primary from data-product, fallback HTML."""
+        """Scrape product detail from skymil-shop.com /produit/{slug} page."""
         html = await self.fetch_html(url)
         if not html:
             return {"url": url, "error": "Failed to fetch"}
 
         tree = HTMLParser(html)
-        pp = self.selectors.get("product_page", {})
         data = {"url": url}
 
-        # --- JSON-primary: div.tab-pane#product-details[data-product] ---
-        json_el = tree.css_first("div.tab-pane#product-details[data-product]")
-        if json_el:
-            raw = json_el.attributes.get("data-product", "")
-            try:
-                pj = json.loads(raw)
-                data["product_id"] = str(pj.get("id", "") or pj.get("id_product", ""))
-                data["title"] = pj.get("name")
-                data["reference"] = pj.get("reference")
-                data["sku"] = pj.get("sku") or pj.get("reference")
-                # Price from JSON
-                if "price_amount" in pj:
-                    data["price"] = pj["price_amount"]
-                elif "price" in pj:
-                    data["price"] = self._parse_price(str(pj["price"]))
-                # Old price
-                if pj.get("regular_price_amount"):
-                    data["old_price"] = pj["regular_price_amount"]
-                elif pj.get("regular_price"):
-                    data["old_price"] = self._parse_price(str(pj["regular_price"]))
-                # Description
-                data["description_short"] = pj.get("description_short")
-                data["description"] = pj.get("description")
-                # Availability
-                data["availability"] = pj.get("availability_message")
-                data["quantity"] = pj.get("quantity")
-                # Category
-                data["category_name"] = pj.get("category_name")
-                # Images from JSON
-                if pj.get("images"):
-                    data["images"] = [
-                        img.get("large", {}).get("url")
-                        or img.get("bySize", {}).get("large_default", {}).get("url")
-                        for img in pj["images"]
-                        if img.get("large", {}).get("url")
-                        or img.get("bySize", {}).get("large_default", {}).get("url")
-                    ]
-                # Features / specs
-                if pj.get("features"):
-                    data["specs"] = {
-                        f.get("name", ""): f.get("value", "")
-                        for f in pj["features"]
-                        if f.get("name")
-                    }
-                # Brand from JSON
-                if pj.get("manufacturer_name"):
-                    data["brand"] = pj["manufacturer_name"]
+        # Product ID from URL slug
+        slug_match = re.search(r"/produit/(.+?)(?:-tunisie)?(?:/|\?|$)", url)
+        data["product_id"] = slug_match.group(1) if slug_match else url.rsplit("/", 1)[-1]
 
-                return data
-            except (json.JSONDecodeError, TypeError):
-                self.logger.debug(
-                    f"JSON parse failed for data-product on {url}, falling back to HTML"
-                )
+        # Title — largest heading on page
+        title_el = tree.css_first("h1")
+        data["title"] = self._clean_text(title_el.text(strip=True)) if title_el else None
 
-        # --- Fallback: HTML parsing ---
-        # Product ID from URL
-        url_match = re.search(r"[\-/](\d+)[\-.]", url)
-        data["product_id"] = url_match.group(1) if url_match else None
-
-        # Title
-        title_el = tree.css_first(pp.get("title", "h1.h1[itemprop='name']"))
-        if not title_el:
-            title_el = tree.css_first("h1.product-name[itemprop='name']")
-        data["title"] = (
-            self._clean_text(title_el.text(strip=True)) if title_el else None
-        )
-
-        # Price — prefer content attr
-        price_el = tree.css_first(
-            pp.get("price", "div.current-price span[itemprop='price']")
-        )
+        # Price — look for price elements (font-extrabold / text-primary pattern)
+        price_el = tree.css_first("p.font-extrabold, p[class*='font-extrabold'], span[class*='font-extrabold']")
         if not price_el:
-            price_el = tree.css_first(".product-price span[itemprop='price']")
-        if price_el:
-            content = price_el.attributes.get("content")
-            if content:
-                try:
-                    data["price"] = float(content)
-                except ValueError:
-                    data["price"] = self._parse_price(price_el.text())
-            else:
-                data["price"] = self._parse_price(price_el.text())
-        else:
-            data["price"] = None
+            # Try any element containing DT price
+            for el in tree.css("p, span, div"):
+                text = (el.text(strip=True) or "")
+                if re.match(r"^\d[\d\s]*(?:DT|TND)$", text):
+                    price_el = el
+                    break
+        data["price"] = self._parse_price(price_el.text() if price_el else None)
 
         # Old price
-        old_el = tree.css_first(pp.get("old_price", "span.regular-price"))
-        if old_el:
-            data["old_price"] = self._parse_price(old_el.text())
-
-        # Brand — from manufacturer img alt
-        brand_el = tree.css_first(pp.get("brand", "div.product-manufacturer img"))
-        if brand_el:
-            data["brand"] = brand_el.attributes.get("alt", "").strip() or None
+        old_price_el = tree.css_first("p.line-through, p[class*='line-through'], span.line-through")
+        if old_price_el:
+            data["old_price"] = self._parse_price(old_price_el.text())
+            if data.get("old_price") and data.get("price"):
+                data["discount_percent"] = round(
+                    (1 - data["price"] / data["old_price"]) * 100
+                )
         else:
-            brand_link = tree.css_first("div.product-manufacturer a")
-            if brand_link:
-                data["brand"] = self._clean_text(brand_link.text(strip=True))
-
-        # SKU
-        sku_el = tree.css_first(
-            pp.get("sku", ".product-reference span[itemprop='sku']")
-        )
-        data["sku"] = self._clean_text(sku_el.text(strip=True)) if sku_el else None
+            data["old_price"] = None
 
         # Availability
-        avail_el = tree.css_first(pp.get("availability", "span#product-availability"))
-        if avail_el:
-            data["availability"] = self._clean_text(avail_el.text(strip=True))
+        stock_el = tree.css_first(
+            "span[class*='gaming-success'], span[class*='text-gaming-success'], "
+            "[class*='En stock'], [class*='en-stock']"
+        )
+        if stock_el:
+            data["availability"] = self._clean_text(stock_el.text(strip=True))
+            data["available"] = True
         else:
-            avail_schema = tree.css_first(
-                pp.get("availability_schema", "link[itemprop='availability'][href]")
-            )
-            if avail_schema:
-                data["availability"] = avail_schema.attributes.get("href", "")
+            oos_el = tree.css_first("span[class*='gaming-warning'], [class*='Rupture']")
+            if oos_el:
+                data["availability"] = self._clean_text(oos_el.text(strip=True))
+                data["available"] = False
+            else:
+                # Infer from add-to-cart button
+                cart_btn = tree.css_first("button[aria-label*='panier'], button[aria-label*='cart']")
+                data["available"] = cart_btn is not None
+                data["availability"] = "En stock" if data["available"] else None
+
+        # Brand — look for brand section
+        brand_el = tree.css_first("img[alt][class*='brand'], div[class*='brand'] img")
+        if brand_el:
+            data["brand"] = self._clean_text(brand_el.attributes.get("alt", ""))
+        else:
+            brand_text_el = tree.css_first("div[class*='brand'], span[class*='brand']")
+            if brand_text_el:
+                data["brand"] = self._clean_text(brand_text_el.text(strip=True))
+            else:
+                data["brand"] = None
 
         # Description
-        desc_el = tree.css_first(
-            pp.get("description", "div.product-description[itemprop='description']")
-        )
+        desc_el = tree.css_first("div[class*='description'], section[class*='description'], p[class*='description']")
         if not desc_el:
-            desc_el = tree.css_first(".product-short-description")
-        data["description"] = (
-            self._clean_text(desc_el.text(strip=True)) if desc_el else None
-        )
+            # Try the second paragraph after the title
+            paragraphs = tree.css("main p")
+            for p in paragraphs:
+                text = self._clean_text(p.text(strip=True))
+                if len(text) > 50:
+                    desc_el = p
+                    break
+        data["description"] = self._clean_text(desc_el.text(strip=True)) if desc_el else None
 
-        # Specs — dl.data-sheet or feature table
+        # Specs — look for specification tables or lists
         specs = {}
-        specs_container = tree.css_first(
-            pp.get("specs_container", "section.product-features dl.data-sheet")
-        )
-        if specs_container:
-            keys = specs_container.css(pp.get("specs_key", "dt.name"))
-            vals = specs_container.css(pp.get("specs_value", "dd.value"))
-            for k, v in zip(keys, vals):
-                k_text = self._clean_text(k.text(strip=True))
-                v_text = self._clean_text(v.text(strip=True))
-                if k_text:
-                    specs[k_text] = v_text
-        if specs:
-            data["specs"] = specs
+        specs_table = tree.css_first("table")
+        if specs_table:
+            for row in specs_table.css("tr"):
+                cells = row.css("td, th")
+                if len(cells) >= 2:
+                    k = self._clean_text(cells[0].text(strip=True))
+                    v = self._clean_text(cells[1].text(strip=True))
+                    if k and v:
+                        specs[k] = v
+        if not specs:
+            # Try definition lists
+            for dl in tree.css("dl"):
+                keys = dl.css("dt")
+                vals = dl.css("dd")
+                for k, v in zip(keys, vals):
+                    k_text = self._clean_text(k.text(strip=True))
+                    v_text = self._clean_text(v.text(strip=True))
+                    if k_text:
+                        specs[k_text] = v_text
+        data["specifications"] = specs if specs else None
 
-        # Images
+        # Images — Supabase CDN images
         images = []
-        main_img = tree.css_first(
-            pp.get("image_main", "div.product-cover img.js-qv-product-cover")
-        )
-        if main_img:
-            src = main_img.attributes.get(
-                "data-image-large-src"
-            ) or main_img.attributes.get("src")
-            if src:
-                images.append(self._make_absolute_url(src))
-
-        for thumb in tree.css(
-            pp.get(
-                "image_thumbnails", "ul.product-images.js-qv-product-images img.thumb"
-            )
-        ):
-            src = thumb.attributes.get(
-                pp.get("image_thumb_attr", "data-image-large-src")
-            ) or thumb.attributes.get("src")
-            if src:
-                abs_src = self._make_absolute_url(src)
-                if abs_src not in images:
-                    images.append(abs_src)
-
+        for img in tree.css("img[src*='supabase.co'], img[src*='product-images']"):
+            src = img.attributes.get("src", "")
+            if src and src not in images:
+                images.append(src)
+        if not images:
+            # Any product image
+            main_img = tree.css_first("main img[src]")
+            if main_img:
+                src = main_img.attributes.get("src", "")
+                if src and not src.startswith("data:"):
+                    images.append(src)
         data["images"] = images if images else None
+
+        # JSON-LD enrichment
+        for script in tree.css('script[type="application/ld+json"]'):
+            raw = (script.text() or "").strip()
+            if not raw:
+                continue
+            try:
+                ld = json.loads(raw)
+            except Exception:
+                continue
+            if isinstance(ld, dict) and ld.get("@type") == "Product":
+                if not data.get("title"):
+                    data["title"] = ld.get("name")
+                if not data.get("brand"):
+                    brand_info = ld.get("brand", {})
+                    if isinstance(brand_info, dict):
+                        data["brand"] = brand_info.get("name")
+                    elif isinstance(brand_info, str):
+                        data["brand"] = brand_info
+                offers = ld.get("offers", {})
+                if isinstance(offers, dict):
+                    if not data.get("price"):
+                        try:
+                            data["price"] = float(offers.get("price", 0)) or None
+                        except (ValueError, TypeError):
+                            pass
+                    avail_schema = offers.get("availability", "")
+                    if "InStock" in avail_schema:
+                        data["availability"] = "En stock"
+                        data["available"] = True
+                    elif "OutOfStock" in avail_schema:
+                        data["availability"] = "Rupture de stock"
+                        data["available"] = False
+                if not data.get("description"):
+                    data["description"] = self._clean_text(ld.get("description", "")) or None
+                break
 
         return data
 

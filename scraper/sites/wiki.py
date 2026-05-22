@@ -36,17 +36,16 @@ class WikiScraper(FastScraper):
         self._browser = None
         self._pw_context = None
         self._tor_slot = hash("wiki") % max(TorPool.get().size, 1)
+        self._request_count = 0
+        # Rotate browser context every N requests to avoid CF session detection
+        self._context_rotate_every = 2
 
     # ------------------------------------------------------------------
     # Shared Playwright browser (lazy init, reused across all fetches)
     # ------------------------------------------------------------------
 
     async def _ensure_browser(self):
-        """Lazily start a shared Playwright browser with anti-detection.
-
-        Uses --headless=new (Chrome's new headless mode) which is less
-        detectable by Cloudflare than the old headless implementation.
-        """
+        """Lazily start a shared Playwright browser with anti-detection."""
         if self._browser is not None:
             return
         from playwright.async_api import async_playwright
@@ -56,6 +55,15 @@ class WikiScraper(FastScraper):
             headless=True,
             args=playwright_launch_args(),
         )
+        await self._rotate_context()
+
+    async def _rotate_context(self):
+        """Create a fresh browser context (rotates session to avoid CF detection)."""
+        if self._pw_context:
+            try:
+                await self._pw_context.close()
+            except Exception:
+                pass
         pool = TorPool.get()
         self._pw_context = await self._browser.new_context(
             user_agent=STEALTH_UA,
@@ -63,9 +71,16 @@ class WikiScraper(FastScraper):
             or proxy_url_to_playwright(self.proxy_url),
         )
         await self._pw_context.add_init_script(STEALTH_JS)
+        self._request_count = 0
 
     async def _close_browser(self):
         """Close the shared browser."""
+        if self._pw_context:
+            try:
+                await self._pw_context.close()
+            except Exception:
+                pass
+            self._pw_context = None
         if self._browser:
             await self._browser.close()
             self._browser = None
@@ -85,7 +100,7 @@ class WikiScraper(FastScraper):
         fp = self.selectors.get("frontpage", {})
         wait_sel = fp.get(
             "wait_selector",
-            "nav.brxe-nav-nested.desktop-nav ul.brx-nav-nested-items > li.brxe-dropdown",
+            "nav.desktop-nav, nav.brxe-nav-nested, nav[class*='nav']",
         )
 
         await self._ensure_browser()
@@ -113,9 +128,18 @@ class WikiScraper(FastScraper):
         return meta.get("html")
 
     async def fetch_html_with_meta(self, url: str, raise_on_error: bool = False) -> dict:
-        """Fetch HTML via shared Playwright browser with probe metadata."""
+        """Fetch HTML via shared Playwright browser with probe metadata.
+
+        Rotates browser context every few requests to avoid Cloudflare
+        session-based bot detection on wiki.tn.
+        """
         started = time.monotonic()
         await self._ensure_browser()
+        # Rotate context to get a fresh session and avoid CF rate-limiting
+        if self._request_count > 0 and self._request_count % self._context_rotate_every == 0:
+            self.logger.debug(f"Rotating browser context after {self._request_count} requests")
+            await self._rotate_context()
+        self._request_count += 1
         page = await self._pw_context.new_page()
         status_code = None
         final_url = url
@@ -356,8 +380,10 @@ class WikiScraper(FastScraper):
     # ------------------------------------------------------------------
 
     def build_page_url(self, base_url: str, page_num: int) -> str:
-        sep = "&" if "?" in base_url else "?"
-        return f"{base_url}{sep}_pagination={page_num}"
+        # WP Grid Builder uses /page/{n}/ path-based pagination
+        # Remove existing /page/N/ if present
+        base = re.sub(r"/page/\d+/?", "", base_url).rstrip("/")
+        return f"{base}/page/{page_num}/"
 
     def extract_products_from_html(self, html: str) -> List[dict]:
         """Extract products from WooCommerce / WP Grid Builder category page."""

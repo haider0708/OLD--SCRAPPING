@@ -12,7 +12,7 @@ settings:
 
 selectors:
   frontpage:
-    wait_selector: "nav.desktop-nav ul.categories-menu"
+    wait_selector: "nav.desktop-nav, nav.brxe-nav-nested, nav[class*='nav']"
     nav_container: "nav.desktop-nav ul.categories-menu"
     top_level_blocks: "nav.desktop-nav ul.categories-menu > li.drop-down-category"
     top_level_name: "div.brx-submenu-toggle > span"
@@ -34,8 +34,8 @@ selectors:
     item_brand: ".product-card__brand-logo img"
     item_brand_attr: "alt"
     item_sku: ".product-card__sku .sku"
-    pagination_next: "li.wpgb-page-next a"
-    pagination_param: "_pagination"
+    pagination_next: "a.next.page-numbers, li.wpgb-page-next a"
+    pagination_param: "page"
 
   product_page:
     title: "h1.brxe-product-title, .product-top__title"
