@@ -34,18 +34,15 @@ class WikiScraper(FastScraper):
         super().__init__("wiki", logger)
         self._pw = None
         self._browser = None
-        self._pw_context = None
         self._tor_slot = hash("wiki") % max(TorPool.get().size, 1)
-        self._request_count = 0
-        # Rotate browser context every N requests to avoid CF session detection
-        self._context_rotate_every = 2
 
     # ------------------------------------------------------------------
     # Shared Playwright browser (lazy init, reused across all fetches)
+    # Each fetch gets its own fresh context to avoid CF session detection.
     # ------------------------------------------------------------------
 
     async def _ensure_browser(self):
-        """Lazily start a shared Playwright browser with anti-detection."""
+        """Lazily start the shared Playwright browser."""
         if self._browser is not None:
             return
         from playwright.async_api import async_playwright
@@ -55,32 +52,21 @@ class WikiScraper(FastScraper):
             headless=True,
             args=playwright_launch_args(),
         )
-        await self._rotate_context()
 
-    async def _rotate_context(self):
-        """Create a fresh browser context (rotates session to avoid CF detection)."""
-        if self._pw_context:
-            try:
-                await self._pw_context.close()
-            except Exception:
-                pass
+    async def _new_context(self):
+        """Create a fresh browser context for a single request."""
+        await self._ensure_browser()
         pool = TorPool.get()
-        self._pw_context = await self._browser.new_context(
+        ctx = await self._browser.new_context(
             user_agent=STEALTH_UA,
             proxy=pool.pw_proxy(self._tor_slot)
             or proxy_url_to_playwright(self.proxy_url),
         )
-        await self._pw_context.add_init_script(STEALTH_JS)
-        self._request_count = 0
+        await ctx.add_init_script(STEALTH_JS)
+        return ctx
 
     async def _close_browser(self):
         """Close the shared browser."""
-        if self._pw_context:
-            try:
-                await self._pw_context.close()
-            except Exception:
-                pass
-            self._pw_context = None
         if self._browser:
             await self._browser.close()
             self._browser = None
@@ -103,8 +89,8 @@ class WikiScraper(FastScraper):
             "nav.desktop-nav, nav.brxe-nav-nested, nav[class*='nav']",
         )
 
-        await self._ensure_browser()
-        page = await self._pw_context.new_page()
+        ctx = await self._new_context()
+        page = await ctx.new_page()
         try:
             await page.goto(self.base_url, wait_until="networkidle", timeout=60000)
             try:
@@ -114,6 +100,7 @@ class WikiScraper(FastScraper):
             html = await page.content()
         finally:
             await page.close()
+            await ctx.close()
 
         save_text_atomic(html, output_path, self.logger)
         self.logger.info(f"✓ Saved: {output_path} ({len(html):,} bytes)")
@@ -128,19 +115,14 @@ class WikiScraper(FastScraper):
         return meta.get("html")
 
     async def fetch_html_with_meta(self, url: str, raise_on_error: bool = False) -> dict:
-        """Fetch HTML via shared Playwright browser with probe metadata.
+        """Fetch HTML using a fresh browser context per request.
 
-        Rotates browser context every few requests to avoid Cloudflare
-        session-based bot detection on wiki.tn.
+        wiki.tn uses Cloudflare Bot Management that detects session reuse,
+        so each request gets its own isolated context.
         """
         started = time.monotonic()
-        await self._ensure_browser()
-        # Rotate context to get a fresh session and avoid CF rate-limiting
-        if self._request_count > 0 and self._request_count % self._context_rotate_every == 0:
-            self.logger.debug(f"Rotating browser context after {self._request_count} requests")
-            await self._rotate_context()
-        self._request_count += 1
-        page = await self._pw_context.new_page()
+        ctx = await self._new_context()
+        page = await ctx.new_page()
         status_code = None
         final_url = url
         html = None
@@ -150,7 +132,10 @@ class WikiScraper(FastScraper):
             status_code = resp.status if resp else None
             final_url = page.url
             try:
-                await page.wait_for_selector("li.product, article.product, div.product-card--grid, div.product-card", timeout=5000)
+                await page.wait_for_selector(
+                    "div.product-card--grid, div.product-card, li.product",
+                    timeout=5000,
+                )
             except Exception:
                 pass
             html = await page.content()
@@ -168,6 +153,7 @@ class WikiScraper(FastScraper):
                 raise
         finally:
             await page.close()
+            await ctx.close()
         blocked_signals = detect_blocked_signals(html, status_code)
         if raise_on_error and error:
             raise RuntimeError(error)
