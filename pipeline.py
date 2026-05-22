@@ -22,8 +22,8 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from export_db import export_latest_run
-from merge_products import merge_latest_products
+from export_db import MongoDBExporter, export_latest_run
+# from merge_products import merge_latest_products  # MERGE DISABLED
 from scrape import limit_products_in_data, run_full_scrape, setup_logger
 from scraper.base import LOGS_DIR, TorPool, load_json, save_json
 from scraper.sites import get_scraper
@@ -148,6 +148,28 @@ class SimplePipeline:
             stats.success = True
             stats.status = result.get("status", "ok")
 
+            # Track history immediately after this site finishes
+            try:
+                self.logger.info(f"  📈 Tracking price history for {site}...")
+                track_history_for_shop(site)
+                self.logger.info(f"  ✅ History tracked for {site}")
+            except Exception as hist_err:
+                self.logger.error(f"  ❌ History tracking failed for {site}: {hist_err}")
+
+            # Export this site to MongoDB immediately (don't wait for all sites)
+            try:
+                self.logger.info(f"  📤 Exporting {site} to MongoDB...")
+                output_path = result.get("output_path")
+                if output_path:
+                    site_dir = Path(output_path).parent
+                    exporter = MongoDBExporter()
+                    if exporter.clients:
+                        exporter.export_shop_data(site, site_dir)
+                    exporter.close()
+                self.logger.info(f"  ✅ MongoDB export done for {site}")
+            except Exception as exp_err:
+                self.logger.error(f"  ❌ MongoDB export failed for {site}: {exp_err}")
+
         except Exception as e:
             stats.error = str(e)
             stats.success = False
@@ -202,69 +224,35 @@ class SimplePipeline:
                     f"{stats.details_scraped} details, status={stats.status}"
                 )
 
-            # Run merge step if all sites succeeded
-            all_success = all(stats.success for stats in self.run_stats.values())
+            # all_success = all(stats.success for stats in self.run_stats.values())  # MERGE DISABLED
             success_count = sum(1 for stats in self.run_stats.values() if stats.success)
 
-            # Run Price Tracking
-            if success_count > 0:
-                self.logger.info(f"\n{'=' * 70}")
-                self.logger.info("🔄 STARTING PRICE TRACKING")
-                self.logger.info(f"{'=' * 70}")
-                for site in self.sites:
-                    if self.run_stats.get(site) and self.run_stats[site].success:
-                        try:
-                            self.logger.info(f"  Tracking history for {site}...")
-                            track_history_for_shop(site)
-                            self.logger.info(
-                                f"  ✅ History tracking successful for {site}"
-                            )
-                        except Exception as e:
-                            self.logger.error(
-                                f"  ❌ History tracking failed for {site}: {e}"
-                            )
-                            import traceback
+            # Price tracking and per-site MongoDB export are done inside _process_site
+            # immediately after each site finishes. The final export below is a safety net.
 
-                            self.logger.debug(traceback.format_exc())
-                self.logger.info(f"\n{'=' * 70}")
-                self.logger.info("✅ PRICE TRACKING COMPLETE")
-                self.logger.info(f"{'=' * 70}")
-            else:
-                self.logger.warning(
-                    "\n⚠️  Skipping price tracking: No sites scraped successfully"
-                )
-
-            # Run Merge if configured
-            if len(self.sites) >= 3 and all_success:
-                self.logger.info(f"\n{'=' * 70}")
-                self.logger.info("🔄 STARTING PRODUCT MERGE")
-                self.logger.info(f"{'=' * 70}")
-                try:
-                    # Run merge
-                    merge_result = merge_latest_products()
-
-                    self.logger.info(f"\n{'=' * 70}")
-                    self.logger.info("✅ MERGE SUCCESSFUL")
-                    self.logger.info(f"{'=' * 70}")
-                    self.logger.info(
-                        f"  Total merged products: {merge_result['total_products']}"
-                    )
-                    self.logger.info(f"  Output: {merge_result['output_path']}")
-
-                except Exception as e:
-                    self.logger.error(f"\n{'=' * 70}")
-                    self.logger.error("❌ MERGE FAILED")
-                    self.logger.error(f"{'=' * 70}")
-                    self.logger.error(f"  Error: {e}")
-                    import traceback
-
-                    self.logger.debug(traceback.format_exc())
-            elif not all_success:
-                self.logger.warning("\n⚠️  Skipping merge: Some sites failed")
-            elif len(self.sites) < 3:
-                self.logger.warning(
-                    f"\n⚠️  Skipping merge: Need at least 3 sites (got {len(self.sites)})"
-                )
+            # MERGE DISABLED — re-enable by uncommenting this block
+            # if len(self.sites) >= 3 and all_success:
+            #     self.logger.info(f"\n{'=' * 70}")
+            #     self.logger.info("🔄 STARTING PRODUCT MERGE")
+            #     self.logger.info(f"{'=' * 70}")
+            #     try:
+            #         merge_result = merge_latest_products()
+            #         self.logger.info(f"\n{'=' * 70}")
+            #         self.logger.info("✅ MERGE SUCCESSFUL")
+            #         self.logger.info(f"{'=' * 70}")
+            #         self.logger.info(f"  Total merged products: {merge_result['total_products']}")
+            #         self.logger.info(f"  Output: {merge_result['output_path']}")
+            #     except Exception as e:
+            #         self.logger.error(f"\n{'=' * 70}")
+            #         self.logger.error("❌ MERGE FAILED")
+            #         self.logger.error(f"{'=' * 70}")
+            #         self.logger.error(f"  Error: {e}")
+            #         import traceback
+            #         self.logger.debug(traceback.format_exc())
+            # elif not all_success:
+            #     self.logger.warning("\n⚠️  Skipping merge: Some sites failed")
+            # elif len(self.sites) < 3:
+            #     self.logger.warning(f"\n⚠️  Skipping merge: Need at least 3 sites (got {len(self.sites)})")
 
             # Run Export
             self.logger.info(f"\n{'=' * 70}")
