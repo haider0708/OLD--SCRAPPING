@@ -110,9 +110,12 @@ def detect_blocked_signals(html: Optional[str], status_code: Optional[int] = Non
         signals.append("rate_limited")
     if "captcha" in text or "g-recaptcha" in text or "hcaptcha" in text:
         signals.append("captcha")
-    if "attention required" in text or "just a moment" in text:
+    # Only flag as cloudflare_challenge when actual challenge phrases are present.
+    # /cdn-cgi/challenge-platform appears on normal Cloudflare-protected pages as
+    # a CDN analytics script and must NOT be treated as a block signal alone.
+    if "attention required" in text or "just a moment" in text or "checking your browser" in text:
         signals.append("cloudflare_challenge")
-    if "cf-chl" in text or "/cdn-cgi/challenge-platform" in text:
+    if "cf-chl" in text:
         signals.append("cloudflare_challenge")
     if "checking your browser" in text:
         signals.append("browser_challenge")

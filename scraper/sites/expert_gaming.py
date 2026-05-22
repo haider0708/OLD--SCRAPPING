@@ -1,55 +1,155 @@
 #!/usr/bin/env python3
 """
 Expert-Gaming.tn specific scraper implementation.
-Hybrid: Playwright for frontpage categories (JS-rendered WooCommerce menu),
-httpx + selectolax for listing pages and product details.
+Full Playwright: site is behind Cloudflare TLS fingerprinting on all pages.
 """
 import json
 import logging
 import re
+import time
 from typing import List, Optional
 from selectolax.parser import HTMLParser
 
-from scraper.base import FastScraper, save_text_atomic
+from scraper.base import (
+    FastScraper,
+    TorPool,
+    detect_blocked_signals,
+    is_blocked_response,
+    playwright_launch_args,
+    proxy_url_to_playwright,
+    save_text_atomic,
+)
+
+STEALTH_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+STEALTH_JS = 'Object.defineProperty(navigator, "webdriver", {get: () => undefined})'
 
 
 class ExpertGamingScraper(FastScraper):
-    """Hybrid scraper for expert-gaming.tn (WooCommerce + Elementor + YITH)."""
+    """Full-Playwright scraper for expert-gaming.tn (Cloudflare-protected WooCommerce)."""
 
     def __init__(self, logger: logging.Logger):
         super().__init__("expert_gaming", logger)
+        self._pw = None
+        self._browser = None
+        self._pw_context = None
+        self._tor_slot = hash("expert_gaming") % max(TorPool.get().size, 1)
 
     # ------------------------------------------------------------------
-    # Hybrid override: Playwright for frontpage (JS-rendered menu)
+    # Shared Playwright browser (lazy init, reused across all fetches)
+    # ------------------------------------------------------------------
+
+    async def _ensure_browser(self):
+        if self._browser is not None:
+            return
+        from playwright.async_api import async_playwright
+        self._pw = await async_playwright().start()
+        self._browser = await self._pw.chromium.launch(
+            headless=True,
+            args=playwright_launch_args(),
+        )
+        pool = TorPool.get()
+        self._pw_context = await self._browser.new_context(
+            user_agent=STEALTH_UA,
+            proxy=pool.pw_proxy(self._tor_slot) or proxy_url_to_playwright(self.proxy_url),
+        )
+        await self._pw_context.add_init_script(STEALTH_JS)
+
+    async def _close_browser(self):
+        if self._browser:
+            await self._browser.close()
+            self._browser = None
+        if self._pw:
+            await self._pw.stop()
+            self._pw = None
+
+    # ------------------------------------------------------------------
+    # Playwright-based frontpage download
     # ------------------------------------------------------------------
 
     async def download_frontpage(self):
-        """Download frontpage using Playwright (menu requires JS rendering)."""
+        """Download frontpage using Playwright (Cloudflare + JS-rendered menu)."""
         output_path = self.html_dir / "frontpage.html"
         self.logger.info(f"📥 Downloading (Playwright): {self.base_url}")
 
-        from playwright.async_api import async_playwright
-
-        async with async_playwright() as pw:
-            from scraper.base import playwright_launch_args, get_playwright_proxy
-            browser = await pw.chromium.launch(headless=True, args=playwright_launch_args())
-            page = await browser.new_page(
-                proxy=get_playwright_proxy(self.site_name, self.config.get("settings", {}))
-            )
+        await self._ensure_browser()
+        page = await self._pw_context.new_page()
+        try:
+            await page.goto(self.base_url, wait_until="domcontentloaded", timeout=30000)
             try:
-                await page.goto(self.base_url, wait_until="domcontentloaded", timeout=30000)
-                try:
-                    await page.wait_for_selector("ul#menu-notre-boutique", state="attached", timeout=10000)
-                except Exception:
-                    self.logger.warning("Menu selector not found, continuing with page content")
-                html = await page.content()
-            finally:
-                await page.close()
-                await browser.close()
+                await page.wait_for_selector("ul#menu-notre-boutique", state="attached", timeout=10000)
+            except Exception:
+                self.logger.warning("Menu selector not found, continuing with page content")
+            html = await page.content()
+        finally:
+            await page.close()
 
         save_text_atomic(html, output_path, self.logger)
         self.logger.info(f"✓ Saved: {output_path} ({len(html):,} bytes)")
         return output_path
+
+    # ------------------------------------------------------------------
+    # Playwright-based fetch_html (replaces httpx for all pages)
+    # ------------------------------------------------------------------
+
+    async def fetch_html(self, url: str, raise_on_error: bool = False) -> Optional[str]:
+        meta = await self.fetch_html_with_meta(url, raise_on_error=raise_on_error)
+        return meta.get("html")
+
+    async def fetch_html_with_meta(self, url: str, raise_on_error: bool = False) -> dict:
+        started = time.monotonic()
+        await self._ensure_browser()
+        page = await self._pw_context.new_page()
+        status_code = None
+        final_url = url
+        html = None
+        error = None
+        try:
+            resp = await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            status_code = resp.status if resp else None
+            final_url = page.url
+            html = await page.content()
+            if status_code and status_code >= 400:
+                error = f"HTTP {status_code}"
+            elif not html or not html.strip():
+                error = "empty_response"
+            elif is_blocked_response(html, status_code):
+                error = "blocked_response"
+        except Exception as e:
+            error = str(e) or e.__class__.__name__
+            self.logger.debug(f"  Error fetching {url}: {e}")
+            if raise_on_error:
+                raise
+        finally:
+            await page.close()
+        blocked_signals = detect_blocked_signals(html, status_code)
+        if raise_on_error and error:
+            raise RuntimeError(error)
+        return {
+            "html": None if error else html,
+            "status_code": status_code,
+            "final_url": final_url,
+            "content_type": None,
+            "content_encoding": None,
+            "attempts": 1,
+            "elapsed_ms": int((time.monotonic() - started) * 1000),
+            "blocked_signals": blocked_signals,
+            "error": error,
+        }
+
+    # ------------------------------------------------------------------
+    # Close browser when scraping finishes
+    # ------------------------------------------------------------------
+
+    async def run_full_scrape(self, category_limit=None, product_limit=None, detail_limit=None, on_result=None):
+        try:
+            return await super().run_full_scrape(
+                category_limit=category_limit,
+                product_limit=product_limit,
+                detail_limit=detail_limit,
+                on_result=on_result,
+            )
+        finally:
+            await self._close_browser()
 
     # ------------------------------------------------------------------
     # Helpers
@@ -74,7 +174,6 @@ class ExpertGamingScraper(FastScraper):
         if not text:
             return None
         cleaned = re.sub(r"[^\d.,]", "", text)
-        # Handle comma as thousands separator (1,234.500)
         if "," in cleaned and "." in cleaned:
             cleaned = cleaned.replace(",", "")
         elif "," in cleaned:
@@ -98,11 +197,9 @@ class ExpertGamingScraper(FastScraper):
             self.logger.warning("Could not find ul#menu-notre-boutique")
             return {"categories": [], "stats": {}}
 
-        # Top-level: direct li children that are taxonomy product_cat items
         top_items = menu.css(
             "li.menu-item-type-taxonomy.menu-item-object-product_cat"
         )
-        # Fallback: any direct li.menu-item children
         if not top_items:
             top_items = menu.css("li.menu-item")
 
@@ -126,7 +223,6 @@ class ExpertGamingScraper(FastScraper):
                 "low_level_categories": [],
             }
 
-            # Low-level: sub-menu children
             sub_menu = top_li.css_first("ul.sub-menu")
             if sub_menu:
                 low_items = sub_menu.css(
@@ -155,7 +251,6 @@ class ExpertGamingScraper(FastScraper):
                         "subcategories": [],
                     }
 
-                    # Subcategories (nested sub-menu)
                     sub_sub_menu = low_li.css_first("ul.sub-menu")
                     if sub_sub_menu:
                         sub_items = sub_sub_menu.css(
@@ -186,7 +281,6 @@ class ExpertGamingScraper(FastScraper):
             categories.append(top_cat)
 
         if categories and all(not c.get("low_level_categories") for c in categories):
-            # Fallback: enrich with direct menu links so queue targets product categories first.
             anchors = menu.css("a[href]")
             fallback_lows = []
             seen = set()
@@ -207,7 +301,6 @@ class ExpertGamingScraper(FastScraper):
                     )
                 ):
                     continue
-                # Expert category URLs are often slug-based and not always /product-category/.
                 if not re.search(r"/[a-z0-9-]{3,}/?$", href_l):
                     continue
                 if href in seen:
@@ -219,7 +312,6 @@ class ExpertGamingScraper(FastScraper):
             if fallback_lows:
                 categories[0]["low_level_categories"] = fallback_lows
 
-        # Stats
         stats = {"top_level": 0, "low_level": 0, "subcategory": 0, "total_urls": 0}
         for top in categories:
             stats["top_level"] += 1
@@ -247,13 +339,11 @@ class ExpertGamingScraper(FastScraper):
         seen_ids = set()
 
         for item in tree.css("li.product.type-product, section.product"):
-            # Product ID from class like "post-12345"
             classes = item.attributes.get("class", "")
             product_id = None
             id_match = re.search(r"post-(\d+)", classes)
             if id_match:
                 product_id = id_match.group(1)
-            # Fallback to data attribute
             if not product_id:
                 product_id = item.attributes.get("data-product_id")
 
@@ -262,7 +352,6 @@ class ExpertGamingScraper(FastScraper):
             if product_id:
                 seen_ids.add(product_id)
 
-            # Name
             name_el = item.css_first(
                 "h2.woocommerce-loop-product__title, "
                 "a.woocommerce-LoopProduct-link h2, "
@@ -275,7 +364,6 @@ class ExpertGamingScraper(FastScraper):
                 if img_name:
                     product_name = self._clean_text(img_name.attributes.get("alt", ""))
 
-            # URL
             link_el = item.css_first(
                 "a.woocommerce-LoopProduct-link, "
                 "h3.heading-title.product-name a, "
@@ -296,7 +384,6 @@ class ExpertGamingScraper(FastScraper):
                 "name": product_name,
             }
 
-            # Image
             img_el = item.css_first(
                 "a.woocommerce-LoopProduct-link img, "
                 "div.thumbnail-wrapper figure img.wp-post-image, "
@@ -311,8 +398,6 @@ class ExpertGamingScraper(FastScraper):
                 if image_url:
                     product_data["image"] = self._make_absolute_url(image_url)
 
-            # Price – WooCommerce price structure
-            # If <del> exists, first amount is old, <ins> amount is current
             del_el = item.css_first("span.price del span.woocommerce-Price-amount.amount bdi")
             ins_el = item.css_first("span.price ins span.woocommerce-Price-amount.amount bdi")
 
@@ -333,7 +418,6 @@ class ExpertGamingScraper(FastScraper):
                     (1 - product_data["price"] / product_data["old_price"]) * 100
                 )
 
-            # Brand (from loop categories link)
             brand_el = item.css_first("span.loop-product-categories a")
             if brand_el:
                 product_data["brand"] = self._clean_text(brand_el.text(strip=True))
@@ -343,7 +427,6 @@ class ExpertGamingScraper(FastScraper):
         if products:
             return products
 
-        # Fallback: parse JSON-LD Product blocks
         for script in tree.css('script[type="application/ld+json"]'):
             raw = (script.text() or "").strip()
             if not raw:
@@ -379,9 +462,7 @@ class ExpertGamingScraper(FastScraper):
 
     def build_page_url(self, base_url: str, page_num: int) -> str:
         """WooCommerce pagination: /page/{n}/ suffix."""
-        # Strip trailing slash for consistency
         base = base_url.rstrip("/")
-        # Remove existing /page/N/ if present
         base = re.sub(r"/page/\d+/?$", "", base)
         return f"{base}/page/{page_num}/"
 
@@ -391,7 +472,6 @@ class ExpertGamingScraper(FastScraper):
         max_page = 1
         current_page = 1
 
-        # Get all non-next page number links
         page_links = tree.css(
             "nav.woocommerce-pagination ul.page-numbers li a.page-numbers:not(.next):not(.prev), "
             "ul.page-numbers li a.page-numbers:not(.next):not(.prev)"
@@ -404,7 +484,6 @@ class ExpertGamingScraper(FastScraper):
             except ValueError:
                 pass
 
-        # Current page (span, not link)
         current_el = tree.css_first(
             "nav.woocommerce-pagination ul.page-numbers li span.page-numbers.current, "
             "ul.page-numbers li span.page-numbers.current"
@@ -441,7 +520,6 @@ class ExpertGamingScraper(FastScraper):
         tree = HTMLParser(html)
         data = {"url": url}
 
-        # Product ID from URL or body class
         body = tree.css_first("body")
         if body:
             body_cls = body.attributes.get("class", "")
@@ -452,15 +530,12 @@ class ExpertGamingScraper(FastScraper):
             url_match = re.search(r"/product/[^/]+-(\d+)/?", url)
             data["product_id"] = url_match.group(1) if url_match else None
 
-        # Title
         title_el = tree.css_first("h1.product_title.entry-title, h1.product_title")
         data["title"] = self._clean_text(title_el.text(strip=True)) if title_el else None
 
-        # SKU
         sku_el = tree.css_first("span.sku, div.sku-wrapper span.sku")
         data["sku"] = self._clean_text(sku_el.text(strip=True)) if sku_el else None
 
-        # Brand
         brand_el = tree.css_first(
             "div.product_meta span.posted_in a, "
             "div.product-brands a, "
@@ -468,7 +543,6 @@ class ExpertGamingScraper(FastScraper):
         )
         data["brand"] = self._clean_text(brand_el.text(strip=True)) if brand_el else None
 
-        # Price – handle del/ins for sale pricing
         del_el = tree.css_first("p.price del span.woocommerce-Price-amount.amount bdi")
         ins_el = tree.css_first("p.price ins span.woocommerce-Price-amount.amount bdi")
 
@@ -488,7 +562,6 @@ class ExpertGamingScraper(FastScraper):
                 (1 - data["price"] / data["old_price"]) * 100
             )
 
-        # Availability
         stock_el = tree.css_first("p.stock.in-stock")
         if stock_el:
             data["availability"] = self._clean_text(stock_el.text(strip=True))
@@ -515,7 +588,6 @@ class ExpertGamingScraper(FastScraper):
                     data["availability"] = None
                     data["available"] = None
 
-        # Description
         desc_el = tree.css_first(
             "div.woocommerce-product-details__short-description, "
             "div#tab-description .panel-body, "
@@ -523,7 +595,6 @@ class ExpertGamingScraper(FastScraper):
         )
         data["description"] = self._clean_text(desc_el.text(strip=True)) if desc_el else None
 
-        # Specifications (WooCommerce attributes table)
         specs = {}
         for row in tree.css(
             "table.woocommerce-product-attributes.shop_attributes tr, "
@@ -542,13 +613,8 @@ class ExpertGamingScraper(FastScraper):
                     specs[k] = v
         data["specifications"] = specs
 
-        # Images
         images = []
-
-        # Main gallery image
-        main_img = tree.css_first(
-            "div.woocommerce-product-gallery__image img"
-        )
+        main_img = tree.css_first("div.woocommerce-product-gallery__image img")
         if main_img:
             src = (
                 main_img.attributes.get("data-large_image")
@@ -558,7 +624,6 @@ class ExpertGamingScraper(FastScraper):
             if src:
                 images.append(self._make_absolute_url(src))
 
-        # Thumbnails / gallery items
         for img in tree.css(
             "ol.flex-control-thumbs li img, "
             "div.woocommerce-product-gallery__image:not(:first-child) img, "
