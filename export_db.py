@@ -176,6 +176,10 @@ class MongoDBExporter:
             collection_name.endswith(s)
             for s in ("_history_price", "_history_availability")
         )
+        is_changes = any(
+            collection_name.endswith(s)
+            for s in ("_products_added", "_products_removed")
+        )
 
         for name, client in self.clients:
             db = client[self.db_name]
@@ -203,6 +207,29 @@ class MongoDBExporter:
                         coll.bulk_write(ops, ordered=False)
                     logger.info(
                         f"  -> Upserted {len(ops)} items to '{collection_name}' on {name}"
+                    )
+                elif is_changes:
+                    # Append-only: insert each event keyed by product_id + detected_at.
+                    # Skip duplicates silently.
+                    from pymongo import UpdateOne
+                    ops = []
+                    for d in data:
+                        if not isinstance(d, dict):
+                            continue
+                        pid = d.get("product_id")
+                        detected_at = d.get("detected_at")
+                        if not pid or not detected_at:
+                            continue
+                        d.setdefault("_updated_at", now)
+                        ops.append(UpdateOne(
+                            {"product_id": str(pid), "detected_at": detected_at},
+                            {"$setOnInsert": d},
+                            upsert=True,
+                        ))
+                    if ops:
+                        coll.bulk_write(ops, ordered=False)
+                    logger.info(
+                        f"  -> Appended {len(ops)} items to '{collection_name}' on {name}"
                     )
                 else:
                     # Full replace for products / details / categories / summaries.

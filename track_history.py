@@ -322,17 +322,28 @@ def update_product_changes(shop: str, products: List[Dict]):
             )
             removed_details = [{"product_id": pid} for pid in removed_ids]
 
-    # 5. Save Output Files (Update every run)
+    # 5. Stamp detected_at and accumulate into local files (append-only)
+    detected_at = datetime.now().isoformat()
     added_file = HISTORY_DIR_ADDED / f"{shop}.json"
     removed_file = HISTORY_DIR_REMOVED / f"{shop}.json"
 
-    save_json(added_file, added_details)
-    save_json(removed_file, removed_details)
+    if added_details:
+        for p in added_details:
+            p["detected_at"] = detected_at
+        existing_added = load_json(added_file) if added_file.exists() else []
+        if not isinstance(existing_added, list):
+            existing_added = []
+        save_json(added_file, existing_added + added_details)
+        logger.info(f"Detected {len(added_details)} ADDED products")
 
-    if added_ids:
-        logger.info(f"Detected {len(added_ids)} ADDED products")
-    if removed_ids:
-        logger.info(f"Detected {len(removed_ids)} REMOVED products")
+    if removed_details:
+        for p in removed_details:
+            p["detected_at"] = detected_at
+        existing_removed = load_json(removed_file) if removed_file.exists() else []
+        if not isinstance(existing_removed, list):
+            existing_removed = []
+        save_json(removed_file, existing_removed + removed_details)
+        logger.info(f"Detected {len(removed_details)} REMOVED products")
 
     # 6. Update State File (Keep only IDs as requested)
     save_json(state_file, list(current_ids))
