@@ -210,51 +210,83 @@ class BillScraper(FastScraper):
     # ------------------------------------------------------------------
 
     async def scrape_product_details(self, url: str) -> dict:
-        # Use Shopify product JSON endpoint
-        handle = url.rstrip("/").split("/products/")[-1]
-        json_url = f"https://bill.tn/products/{handle}.js"
-        html = await self.fetch_html(json_url)
-        if html:
-            try:
-                p = json.loads(html)
-                variant = (p.get("variants") or [{}])[0]
-                price = self._parse_price(str(variant.get("price", "")))
-                compare_at = self._parse_price(str(variant.get("compare_at_price") or ""))
-                images = [img.get("src") for img in (p.get("images") or []) if img.get("src")]
-                return {
-                    "url": url,
-                    "product_id": str(p.get("id", "")),
-                    "title": p.get("title"),
-                    "sku": variant.get("sku"),
-                    "price": price,
-                    "old_price": compare_at if compare_at and compare_at != price else None,
-                    "availability": "En stock" if variant.get("available") else "Rupture de stock",
-                    "available": variant.get("available", False),
-                    "description": re.sub(r"<[^>]+>", " ", p.get("body_html") or "").strip(),
-                    "images": images[:10],
-                    "specifications": {},
-                }
-            except (json.JSONDecodeError, AttributeError):
-                pass
-
-        # Fallback: parse HTML product page
         html = await self.fetch_html(url)
         if not html:
             return {"url": url, "error": "Failed to fetch"}
+
         tree = HTMLParser(html)
         data = {"url": url}
-        title_el = tree.css_first("h1.product-single__title, h1[itemprop='name'], h1")
+
+        # Shopify embeds full product JSON in a <script id="ProductJson-*"> or
+        # <script type="application/json" data-product-json> tag
+        product_json = None
+        for script in tree.css('script[id^="ProductJson"], script[data-product-json], script[type="application/json"]'):
+            raw = (script.text() or "").strip()
+            if not raw or '"variants"' not in raw:
+                continue
+            try:
+                product_json = json.loads(raw)
+                break
+            except json.JSONDecodeError:
+                continue
+
+        if product_json:
+            variant = (product_json.get("variants") or [{}])[0]
+            # Shopify stores price in cents (integer)
+            raw_price = variant.get("price", 0)
+            raw_compare = variant.get("compare_at_price") or 0
+            price = float(raw_price) / 100 if isinstance(raw_price, int) and raw_price > 1000 else self._parse_price(str(raw_price))
+            compare_at = float(raw_compare) / 100 if isinstance(raw_compare, int) and raw_compare > 1000 else self._parse_price(str(raw_compare))
+            images = [img.get("src") for img in (product_json.get("images") or []) if img.get("src")]
+            body_html = product_json.get("body_html") or product_json.get("description") or ""
+            data.update({
+                "product_id": str(product_json.get("id", "")),
+                "title": product_json.get("title"),
+                "sku": variant.get("sku"),
+                "price": price,
+                "old_price": compare_at if compare_at and compare_at != price else None,
+                "availability": "En stock" if variant.get("available") else "Rupture de stock",
+                "available": variant.get("available", False),
+                "description": re.sub(r"<[^>]+>", " ", body_html).strip(),
+                "images": images[:10],
+                "specifications": {},
+            })
+            return data
+
+        # Fallback: parse HTML selectors
+        title_el = tree.css_first("h1.product-single__title, h1.product__title, h1[itemprop='name'], h1")
         data["title"] = title_el.text(strip=True) if title_el else None
-        price_el = tree.css_first("span.product-price__price, span[itemprop='price'], span.price")
+
+        price_el = tree.css_first(
+            "span.product-price__price, "
+            "span[itemprop='price'], "
+            "div.product-price span.price-item--regular, "
+            "span.price-item"
+        )
         data["price"] = self._parse_price(price_el.text(strip=True)) if price_el else None
-        sku_el = tree.css_first("span.product-single__sku-number, span.sku")
+
+        compare_el = tree.css_first("span.price-item--regular s, s.price-item--regular")
+        data["old_price"] = self._parse_price(compare_el.text(strip=True)) if compare_el else None
+
+        sku_el = tree.css_first("span.product-single__sku-number, span.variant-sku, span.sku")
         data["sku"] = sku_el.text(strip=True) if sku_el else None
-        desc_el = tree.css_first("div.product-single__description, div.product__description")
+
+        desc_el = tree.css_first(
+            "div.product-single__description, "
+            "div.product__description, "
+            "div[class*='product-description']"
+        )
         data["description"] = desc_el.text(strip=True) if desc_el else None
-        stock_el = tree.css_first("span.product-single__availability")
-        data["availability"] = stock_el.text(strip=True) if stock_el else None
-        data["available"] = "stock" in (data["availability"] or "").lower()
-        images = [img.attributes.get("src") for img in tree.css("div.product-single__media img") if img.attributes.get("src")]
+
+        avail_el = tree.css_first("span.product__availability, span[class*='availability']")
+        data["availability"] = avail_el.text(strip=True) if avail_el else None
+        data["available"] = "stock" in (data["availability"] or "").lower() if data["availability"] else None
+
+        images = []
+        for img in tree.css("div.product-single__media img, div.product__media img, div[class*='product-gallery'] img"):
+            src = img.attributes.get("src") or img.attributes.get("data-src")
+            if src and not src.startswith("data:") and src not in images:
+                images.append(src)
         data["images"] = images[:10]
         data["specifications"] = {}
         return data
