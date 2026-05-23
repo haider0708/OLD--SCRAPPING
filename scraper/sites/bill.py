@@ -210,90 +210,76 @@ class BillScraper(FastScraper):
             return None
 
     # ------------------------------------------------------------------
-    # Product detail
+    # Product detail — Shopify JSON API (avoids 403 on HTML product pages)
     # ------------------------------------------------------------------
 
     async def scrape_product_details(self, url: str) -> dict:
-        html = await self.fetch_html(url)
-        if not html:
-            return {"url": url, "error": "Failed to fetch"}
+        # Derive the handle from the product URL and call /products/{handle}.json
+        # which is the Shopify storefront API — accessible without browser headers.
+        handle = url.rstrip("/").rsplit("/products/", 1)[-1].split("?")[0]
+        api_url = f"https://bill.tn/products/{handle}.json"
 
-        tree = HTMLParser(html)
-        data = {"url": url}
-
-        # Shopify embeds full product JSON in a <script id="ProductJson-*"> or
-        # <script type="application/json" data-product-json> tag
-        product_json = None
-        for script in tree.css('script[id^="ProductJson"], script[data-product-json], script[type="application/json"]'):
-            raw = (script.text() or "").strip()
-            if not raw or '"variants"' not in raw:
-                continue
+        raw = await self.fetch_html(api_url)
+        if raw:
             try:
-                product_json = json.loads(raw)
-                break
-            except json.JSONDecodeError:
-                continue
+                data = json.loads(raw)
+                p = data.get("product", data)  # some Shopify stores wrap, some don't
+                if p and "variants" in p:
+                    return self._parse_shopify_product_json(url, p)
+            except (json.JSONDecodeError, AttributeError):
+                pass
 
-        if product_json:
-            variant = (product_json.get("variants") or [{}])[0]
-            # Shopify stores price in cents (integer)
-            raw_price = variant.get("price", 0)
-            raw_compare = variant.get("compare_at_price") or 0
-            price = float(raw_price) / 100 if isinstance(raw_price, int) and raw_price > 1000 else self._parse_price(str(raw_price))
-            compare_at = float(raw_compare) / 100 if isinstance(raw_compare, int) and raw_compare > 1000 else self._parse_price(str(raw_compare))
-            images = [img.get("src") for img in (product_json.get("images") or []) if img.get("src")]
-            body_html = product_json.get("body_html") or product_json.get("description") or ""
-            data.update({
-                "product_id": str(product_json.get("id", "")),
-                "title": product_json.get("title"),
-                "sku": variant.get("sku"),
-                "price": price,
-                "old_price": compare_at if compare_at and compare_at != price else None,
-                "availability": "En stock" if variant.get("available") else "Rupture de stock",
-                "available": variant.get("available", False),
-                "description": re.sub(r"<[^>]+>", " ", body_html).strip(),
-                "images": images[:10],
-                "specifications": {},
-            })
-            return data
+        # If JSON API also fails, return a minimal stub so the pipeline
+        # doesn't crash — detail fields will be null but url/product_id survive.
+        return {"url": url, "product_id": None, "title": None, "price": None,
+                "old_price": None, "sku": None, "availability": None,
+                "available": None, "description": None, "images": [],
+                "specifications": {}, "error": "Failed to fetch"}
 
-        # Fallback: parse HTML selectors
-        title_el = tree.css_first("h1.product-single__title, h1.product__title, h1[itemprop='name'], h1")
-        data["title"] = title_el.text(strip=True) if title_el else None
+    def _parse_shopify_product_json(self, url: str, p: dict) -> dict:
+        """Convert a Shopify product JSON object into our standard detail dict."""
+        variant = (p.get("variants") or [{}])[0]
 
-        price_el = tree.css_first(
-            "span.product-price__price, "
-            "span[itemprop='price'], "
-            "div.product-price span.price-item--regular, "
-            "span.price-item"
-        )
-        data["price"] = self._parse_price(price_el.text(strip=True)) if price_el else None
+        raw_price = variant.get("price", 0)
+        raw_compare = variant.get("compare_at_price") or 0
 
-        compare_el = tree.css_first("span.price-item--regular s, s.price-item--regular")
-        data["old_price"] = self._parse_price(compare_el.text(strip=True)) if compare_el else None
+        # Shopify API returns prices as strings ("1060.00") from storefront JSON
+        # and as integers (106000 = cents) from private Admin API.
+        # Detect cents by checking if int value > plausible TND price (10000 TND max).
+        def _to_price(v):
+            if isinstance(v, int):
+                return float(v) / 100 if v > 100000 else float(v)
+            return self._parse_price(str(v)) if v else None
 
-        sku_el = tree.css_first("span.product-single__sku-number, span.variant-sku, span.sku")
-        data["sku"] = sku_el.text(strip=True) if sku_el else None
+        price = _to_price(raw_price)
+        compare_at = _to_price(raw_compare)
 
-        desc_el = tree.css_first(
-            "div.product-single__description, "
-            "div.product__description, "
-            "div[class*='product-description']"
-        )
-        data["description"] = desc_el.text(strip=True) if desc_el else None
+        images = [img.get("src") for img in (p.get("images") or []) if img.get("src")]
+        body_html = p.get("body_html") or p.get("description") or ""
+        description = re.sub(r"<[^>]+>", " ", body_html)
+        description = re.sub(r"\s+", " ", description).strip() or None
 
-        avail_el = tree.css_first("span.product__availability, span[class*='availability']")
-        data["availability"] = avail_el.text(strip=True) if avail_el else None
-        data["available"] = "stock" in (data["availability"] or "").lower() if data["availability"] else None
+        # Build specifications from metafields if present
+        specs = {}
+        for mf in p.get("metafields", []):
+            k = mf.get("key") or mf.get("namespace")
+            v = mf.get("value")
+            if k and v:
+                specs[str(k)] = str(v)
 
-        images = []
-        for img in tree.css("div.product-single__media img, div.product__media img, div[class*='product-gallery'] img"):
-            src = img.attributes.get("src") or img.attributes.get("data-src")
-            if src and not src.startswith("data:") and src not in images:
-                images.append(src)
-        data["images"] = images[:10]
-        data["specifications"] = {}
-        return data
+        return {
+            "url": url,
+            "product_id": str(p.get("id", "")),
+            "title": p.get("title"),
+            "sku": variant.get("sku") or str(p.get("id", "")),
+            "price": price,
+            "old_price": compare_at if compare_at and compare_at != price else None,
+            "availability": "En stock" if variant.get("available") else "Rupture de stock",
+            "available": bool(variant.get("available", False)),
+            "description": description,
+            "images": images[:10],
+            "specifications": specs,
+        }
 
 
 def get_scraper(logger: logging.Logger) -> BillScraper:
