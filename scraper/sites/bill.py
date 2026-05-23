@@ -29,43 +29,85 @@ class BillScraper(FastScraper):
         return f"{base}{sep}page={page_num}"
 
     # ------------------------------------------------------------------
+    # Frontpage override — fetch collections via Shopify JSON API
+    # bill.tn blocks httpx on the HTML frontpage (403) but the JSON
+    # API endpoints are accessible.
+    # ------------------------------------------------------------------
+
+    async def download_frontpage(self):
+        from scraper.base import save_text_atomic
+        output_path = self.html_dir / "frontpage.html"
+        # Shopify collections API — returns all collections as JSON
+        api_url = "https://bill.tn/collections.json?limit=250"
+        self.logger.info(f"Downloading bill.tn collections via API: {api_url}")
+        raw = await self.fetch_html(api_url)
+        if not raw:
+            # Fall back to cached frontpage from a previous run if available
+            if output_path.exists():
+                self.logger.warning("API fetch failed — using cached frontpage.html")
+                return output_path
+            raise RuntimeError("Failed to fetch bill.tn collections and no cached frontpage found")
+        save_text_atomic(raw, output_path, self.logger)
+        return output_path
+
+    # ------------------------------------------------------------------
     # Categories
     # ------------------------------------------------------------------
 
     def extract_categories_from_html(self, html: str) -> dict:
-        # Use regex on raw HTML to capture hrefs inside <template> tags too,
-        # since selectolax skips content inside <template> elements.
-        SKIP_SLUGS = {"promotions", "nouveautes", "all", "frontpage"}
-        seen_slugs = set()
+        SKIP_SLUGS = {"promotions", "nouveautes", "all", "frontpage", ""}
         categories = []
+        seen_slugs: set = set()
 
-        # Extract name+href pairs from ALL <a> tags in raw HTML (including inside <template>)
-        # Pattern: captures href and then looks for visible text nearby
-        # We parse with regex to get href, then use selectolax for the visible-DOM name fallback.
+        # --- Path A: Shopify collections.json API response ---
+        try:
+            data = json.loads(html)
+            collections = data.get("collections", [])
+            if collections:
+                for c in collections:
+                    handle = c.get("handle", "")
+                    if not handle or handle in SKIP_SLUGS:
+                        continue
+                    if handle in seen_slugs:
+                        continue
+                    seen_slugs.add(handle)
+                    title = c.get("title") or handle.replace("-", " ").title()
+                    categories.append({
+                        "name": title,
+                        "url": f"https://bill.tn/collections/{handle}",
+                        "level": "top",
+                        "low_level_categories": [],
+                    })
+                self.logger.info(f"Extracted {len(categories)} categories from Shopify API")
+                stats = {"top_level": len(categories), "low_level": 0,
+                         "subcategory": 0, "total_urls": len(categories)}
+                return {"categories": categories, "stats": stats}
+        except (json.JSONDecodeError, AttributeError):
+            pass
+
+        # --- Path B: HTML fallback (cached frontpage) ---
+        # Use regex to capture hrefs inside <template> tags too,
+        # since selectolax skips content inside <template> elements.
         raw_pairs = re.findall(
             r'<a[^>]+href="(/collections/([^"/]+))"[^>]*>(.*?)</a>',
             html,
             re.DOTALL | re.IGNORECASE,
         )
-
         for href, slug, inner_html in raw_pairs:
             if slug in SKIP_SLUGS or slug in seen_slugs:
                 continue
             seen_slugs.add(slug)
-            # Strip tags from inner HTML to get text
             name = re.sub(r"<[^>]+>", " ", inner_html).strip()
             name = re.sub(r"\s+", " ", name).strip()
             if not name:
                 continue
-            url = f"https://bill.tn{href}"
             categories.append({
                 "name": name,
-                "url": url,
+                "url": f"https://bill.tn{href}",
                 "level": "top",
                 "low_level_categories": [],
             })
 
-        # Also catch absolute URLs like href="https://bill.tn/collections/slug"
         abs_pairs = re.findall(
             r'<a[^>]+href="(https://bill\.tn/collections/([^"/\s?]+))[^"]*"[^>]*>(.*?)</a>',
             html,
@@ -86,13 +128,9 @@ class BillScraper(FastScraper):
                 "low_level_categories": [],
             })
 
-        stats = {
-            "top_level": len(categories),
-            "low_level": 0,
-            "subcategory": 0,
-            "total_urls": len(categories),
-        }
-        self.logger.info(f"Extracted {len(categories)} categories (including sub-nav)")
+        stats = {"top_level": len(categories), "low_level": 0,
+                 "subcategory": 0, "total_urls": len(categories)}
+        self.logger.info(f"Extracted {len(categories)} categories (HTML fallback)")
         return {"categories": categories, "stats": stats}
 
     # ------------------------------------------------------------------
