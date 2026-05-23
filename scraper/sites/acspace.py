@@ -115,6 +115,9 @@ class AcspaceScraper(FastScraper):
             href = a.attributes.get("href", "") if a else ""
             if not href or href in seen_urls:
                 continue
+            # Skip brand/tag/category pages that are not products
+            if any(x in href for x in ("/marque/", "/tag/", "/category/", "?", "#")):
+                continue
             seen_urls.add(href)
             url = href if href.startswith("http") else f"https://acspace.tn{href}"
 
@@ -225,15 +228,26 @@ class AcspaceScraper(FastScraper):
     async def scrape_product_details(self, url: str) -> dict:
         html = await self.fetch_html(url)
         if not html:
-            return {"url": url, "error": "Failed to fetch"}
+            return {"url": url, "product_id": None, "title": None, "price": None,
+                    "old_price": None, "sku": None, "availability": None,
+                    "available": None, "description": None, "images": [],
+                    "specifications": {}, "error": "Failed to fetch"}
 
         tree = HTMLParser(html)
         data = {"url": url}
 
         body = tree.css_first("body")
-        if body:
-            pid_match = re.search(r"\bpostid-(\d+)\b", body.attributes.get("class", ""))
-            data["product_id"] = pid_match.group(1) if pid_match else None
+        body_class = body.attributes.get("class", "") if body else ""
+
+        # Detect if the page redirected to homepage or a non-product page
+        if "single-product" not in body_class:
+            return {"url": url, "product_id": None, "title": None, "price": None,
+                    "old_price": None, "sku": None, "availability": None,
+                    "available": None, "description": None, "images": [],
+                    "specifications": {}, "error": "not_a_product_page"}
+
+        pid_match = re.search(r"\bpostid-(\d+)\b", body_class)
+        data["product_id"] = pid_match.group(1) if pid_match else None
 
         title_el = tree.css_first("h1.product_title, h1")
         data["title"] = title_el.text(strip=True) if title_el else None
@@ -255,18 +269,18 @@ class AcspaceScraper(FastScraper):
         if data.get("old_price") and data.get("price") and data["old_price"] != data["price"]:
             data["discount_percent"] = round((1 - data["price"] / data["old_price"]) * 100)
 
-        stock_el = tree.css_first("p.stock.in-stock")
-        if stock_el:
-            data["availability"] = stock_el.text(strip=True)
+        # Stock — use specific classes to avoid grabbing breadcrumb text
+        in_stock = tree.css_first("p.stock.in-stock, span.stock.in-stock")
+        out_stock = tree.css_first("p.stock.out-of-stock, span.stock.out-of-stock")
+        if in_stock:
+            data["availability"] = "En stock"
             data["available"] = True
+        elif out_stock:
+            data["availability"] = "Rupture de stock"
+            data["available"] = False
         else:
-            oos_el = tree.css_first("p.stock.out-of-stock")
-            if oos_el:
-                data["availability"] = oos_el.text(strip=True)
-                data["available"] = False
-            else:
-                data["availability"] = None
-                data["available"] = None
+            data["availability"] = None
+            data["available"] = None
 
         desc_el = tree.css_first("div.woocommerce-product-details__short-description")
         data["description"] = desc_el.text(strip=True) if desc_el else None
@@ -285,8 +299,14 @@ class AcspaceScraper(FastScraper):
         images = []
         for img in tree.css("div.woocommerce-product-gallery__image img"):
             src = img.attributes.get("data-large_image") or img.attributes.get("src")
-            if src and src not in images:
+            if src and "logo" not in src and src not in images:
                 images.append(src)
+        # Fallback: any wp-content/uploads image that isn't the logo
+        if not images:
+            for img in tree.css("img[src*='wp-content/uploads']"):
+                src = img.attributes.get("src", "")
+                if src and "logo" not in src and src not in images:
+                    images.append(src)
         data["images"] = images[:10]
 
         return data
