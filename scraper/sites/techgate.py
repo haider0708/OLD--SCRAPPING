@@ -27,6 +27,14 @@ class TechgateScraper(FastScraper):
     # Categories
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _first_child_link(node):
+        """Return the first direct-child <a> of a node (or None)."""
+        for child in node.iter():
+            if child.tag == "a":
+                return child
+        return None
+
     def extract_categories_from_html(self, html: str) -> dict:
         tree = HTMLParser(html)
         categories = []
@@ -41,7 +49,8 @@ class TechgateScraper(FastScraper):
         self.logger.info(f"Found {len(top_items)} top-level menu items")
 
         for li in top_items:
-            a = li.css_first("a.woodmart-nav-link, > a")
+            # Get the top-level link — the first direct child <a> of this <li>
+            a = self._first_child_link(li)
             if not a:
                 continue
             href = a.attributes.get("href", "")
@@ -58,8 +67,8 @@ class TechgateScraper(FastScraper):
             # Sub-menu items
             sub_menu = li.css_first("ul.wd-sub-menu, ul.sub-menu")
             if sub_menu:
-                for sub_li in sub_menu.css("li.menu-item"):
-                    sub_a = sub_li.css_first("a.woodmart-nav-link, > a")
+                for sub_li in sub_menu.css("li"):
+                    sub_a = self._first_child_link(sub_li)
                     if not sub_a:
                         continue
                     sub_href = sub_a.attributes.get("href", "")
