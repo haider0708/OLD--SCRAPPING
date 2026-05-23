@@ -164,48 +164,61 @@ class MongoDBExporter:
 
     def export_collection(self, collection_name: str, data: List[Dict]):
         """
-        Generic function to export a list of documents to a specific collection.
-        Strategies:
-        1. Products/Details/Merged -> Full Replace involved (Delete all -> Insert all) to ensure sync.
-        2. History -> Upsert or Replace? History files grow, so Replace is safest to avoid duplicates.
+        Export documents to a collection.
+        - History collections (_history_price, _history_availability): upsert by product_id,
+          replacing the history array with the authoritative local version.
+        - All other collections: full replace (delete all + insert all).
         """
         if not data:
             return
 
+        is_history = any(
+            collection_name.endswith(s)
+            for s in ("_history_price", "_history_availability")
+        )
+
         for name, client in self.clients:
             db = client[self.db_name]
             coll = db[collection_name]
+            now = datetime.now()
 
             try:
-                # Strategy: Full Replace (Simplest for consistency)
-                # For very huge datasets (>1M), we might need bulk_write upserts,
-                # but for <100k, replacing the collection is fast and clean.
-
-                # 1. Clear existing
-                coll.delete_many({})
-
-                # 2. Insert new (Batching handled by pymongo, but good to be explicit if huge)
-                # Add metadata
-                now = datetime.now()
-                # If data is a list of dicts
-                if isinstance(data, list):
-                    # Add timestamp if missing
+                if is_history:
+                    # Upsert each document by product_id so history accumulates correctly.
+                    from pymongo import UpdateOne
+                    ops = []
                     for d in data:
-                        if isinstance(d, dict) and "_updated_at" not in d:
-                            d["_updated_at"] = now
-
-                    if data:
-                        coll.insert_many(data)
-
-                elif isinstance(data, dict):
-                    # Single document (e.g. summary or analytics)
-                    if "_updated_at" not in data:
-                        data["_updated_at"] = now
-                    coll.insert_one(data)
-
-                logger.info(
-                    f"  -> Exported {len(data) if isinstance(data, list) else 1} items to '{collection_name}' on {name}"
-                )
+                        if not isinstance(d, dict):
+                            continue
+                        pid = d.get("product_id")
+                        if not pid:
+                            continue
+                        d.setdefault("_updated_at", now)
+                        ops.append(UpdateOne(
+                            {"product_id": str(pid)},
+                            {"$set": d},
+                            upsert=True,
+                        ))
+                    if ops:
+                        coll.bulk_write(ops, ordered=False)
+                    logger.info(
+                        f"  -> Upserted {len(ops)} items to '{collection_name}' on {name}"
+                    )
+                else:
+                    # Full replace for products / details / categories / summaries.
+                    coll.delete_many({})
+                    if isinstance(data, list):
+                        for d in data:
+                            if isinstance(d, dict):
+                                d.setdefault("_updated_at", now)
+                        if data:
+                            coll.insert_many(data)
+                    elif isinstance(data, dict):
+                        data.setdefault("_updated_at", now)
+                        coll.insert_one(data)
+                    logger.info(
+                        f"  -> Exported {len(data) if isinstance(data, list) else 1} items to '{collection_name}' on {name}"
+                    )
 
             except Exception as e:
                 logger.error(
