@@ -134,7 +134,7 @@ class TechgateScraper(FastScraper):
             image = None
             if img:
                 image = img.attributes.get("data-src") or img.attributes.get("src")
-                if image and image.startswith("data:"):
+                if image and (image.startswith("data:") or "logo" in image):
                     image = None
 
             products.append({
@@ -184,15 +184,19 @@ class TechgateScraper(FastScraper):
     def _parse_price(self, text: str) -> Optional[float]:
         if not text:
             return None
-        cleaned = re.sub(r"[^\d,.]", "", text).strip()
+        # Techgate format: "1 499,000 DT" — space=thousands, comma=decimal
+        # Strip currency symbols, spaces, non-breaking spaces
+        cleaned = re.sub(r"[^\d,.]", "", text.replace("\xa0", "").replace(" ", "")).strip()
         if not cleaned:
             return None
-        # "59,900" — comma is thousands separator
+        # "1499,000" — comma is decimal separator (French locale)
         if "," in cleaned and "." not in cleaned:
-            cleaned = cleaned.replace(",", "")
+            # Check if it looks like a decimal: digits,3digits at end → decimal
+            # e.g. "1499,000" → 1499.0  vs "1,200" (ambiguous — treat as decimal too)
+            cleaned = cleaned.replace(",", ".")
         elif "," in cleaned and "." in cleaned:
-            # "1,234.56" — standard decimal
-            cleaned = cleaned.replace(",", "")
+            # both separators: "1.499,00" → remove dots, comma=decimal
+            cleaned = cleaned.replace(".", "").replace(",", ".")
         try:
             return float(cleaned) if cleaned else None
         except ValueError:
@@ -270,15 +274,16 @@ class TechgateScraper(FastScraper):
         data["specifications"] = specs
 
         images = []
-        main_img = tree.css_first("div.woocommerce-product-gallery__image img")
-        if main_img:
-            src = main_img.attributes.get("data-large_image") or main_img.attributes.get("src")
-            if src:
+        for img in tree.css("div.woocommerce-product-gallery__image img, figure.woocommerce-product-gallery__wrapper img"):
+            src = img.attributes.get("data-large_image") or img.attributes.get("data-src") or img.attributes.get("src")
+            if src and "logo" not in src and src not in images:
                 images.append(src)
-        for img in tree.css("div.woocommerce-product-gallery__image:not(:first-child) img"):
-            src = img.attributes.get("data-large_image") or img.attributes.get("src")
-            if src and src not in images:
-                images.append(src)
+        # Fallback: any product upload image
+        if not images:
+            for img in tree.css("img[src*='wp-content/uploads']"):
+                src = img.attributes.get("src", "")
+                if src and "logo" not in src and src not in images:
+                    images.append(src)
         data["images"] = images[:10]
 
         return data

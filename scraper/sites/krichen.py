@@ -184,13 +184,16 @@ class KrichenScraper(FastScraper):
     def _parse_price(self, text: str) -> Optional[float]:
         if not text:
             return None
-        cleaned = re.sub(r"[^\d,.]", "", text).strip()
+        # Krichen format: "95,00 TND" — comma is decimal (French locale)
+        cleaned = re.sub(r"[^\d,.]", "", text.replace("\xa0", "").replace(" ", "")).strip()
         if not cleaned:
             return None
         if "," in cleaned and "." not in cleaned:
-            cleaned = cleaned.replace(",", "")
+            # "95,00" → decimal  |  "1200,00" → decimal  |  "1.200,00" handled below
+            cleaned = cleaned.replace(",", ".")
         elif "," in cleaned and "." in cleaned:
-            cleaned = cleaned.replace(",", "")
+            # "1.200,00" → remove dot (thousands), comma=decimal
+            cleaned = cleaned.replace(".", "").replace(",", ".")
         try:
             return float(cleaned) if cleaned else None
         except ValueError:
@@ -264,10 +267,23 @@ class KrichenScraper(FastScraper):
         data["specifications"] = specs
 
         images = []
-        for img in tree.css("div.woocommerce-product-gallery__image img"):
-            src = img.attributes.get("data-large_image") or img.attributes.get("src")
-            if src and src not in images:
+        # Primary: lazy-loaded product image has data-src set
+        for img in tree.css("img[data-src*='wp-content/uploads']"):
+            src = img.attributes.get("data-large_image") or img.attributes.get("data-src") or img.attributes.get("src")
+            if src and "logo" not in src.lower() and src not in images:
                 images.append(src)
+        # Fallback: standard gallery
+        if not images:
+            for img in tree.css("div.woocommerce-product-gallery__image img, figure.woocommerce-product-gallery__wrapper img"):
+                src = img.attributes.get("data-large_image") or img.attributes.get("src")
+                if src and "logo" not in src.lower() and src not in images:
+                    images.append(src)
+        # Last fallback: attachment-large (the actual product image WordPress stores)
+        if not images:
+            for img in tree.css("img.attachment-large, img.wp-post-image"):
+                src = img.attributes.get("src", "")
+                if src and "logo" not in src.lower() and src not in images:
+                    images.append(src)
         data["images"] = images[:10]
 
         return data
