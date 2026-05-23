@@ -229,13 +229,22 @@ class TechnoproScraper(FastScraper):
         }
 
     def _parse_price(self, text: str) -> Optional[float]:
-        """Parse price text like '729,000 TND' to float 729.0"""
+        """Parse price text like '729,000 TND' or '1 299,000 TND' to float 729.0
+
+        PrestaShop Tunisia always appends millesimes with a comma: '729,000' = 729 DT.
+        Strip everything from the comma onward, then remove space thousand separators.
+        """
         if not text:
             return None
-        # Remove TND, spaces, non-breaking spaces
-        cleaned = re.sub(r'[TND\s\u00a0]', '', text).replace(',', '.')
+        cleaned = re.sub(r'[^\d,.\s]', '', text).strip()
+        # Remove spaces used as thousand separators (e.g. '1 299')
+        cleaned = re.sub(r'\s+', '', cleaned)
+        # Strip millesime: comma and everything after it
+        if ',' in cleaned:
+            cleaned = cleaned.split(',')[0]
+        cleaned = cleaned.replace('.', '')
         try:
-            return float(cleaned)
+            return float(cleaned) if cleaned else None
         except ValueError:
             return None
 
