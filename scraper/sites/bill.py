@@ -33,26 +33,31 @@ class BillScraper(FastScraper):
     # ------------------------------------------------------------------
 
     def extract_categories_from_html(self, html: str) -> dict:
-        tree = HTMLParser(html)
+        # Use regex on raw HTML to capture hrefs inside <template> tags too,
+        # since selectolax skips content inside <template> elements.
+        SKIP_SLUGS = {"promotions", "nouveautes", "all", "frontpage"}
+        seen_slugs = set()
         categories = []
-        seen_urls = set()
 
-        # Top-level nav links
-        top_items = tree.css("ul.menu-list > li.menu-item > a")
-        if not top_items:
-            top_items = tree.css("nav a[href*='/collections/']")
+        # Extract name+href pairs from ALL <a> tags in raw HTML (including inside <template>)
+        # Pattern: captures href and then looks for visible text nearby
+        # We parse with regex to get href, then use selectolax for the visible-DOM name fallback.
+        raw_pairs = re.findall(
+            r'<a[^>]+href="(/collections/([^"/]+))"[^>]*>(.*?)</a>',
+            html,
+            re.DOTALL | re.IGNORECASE,
+        )
 
-        for a in top_items:
-            href = a.attributes.get("href", "")
-            if not href or "/collections/" not in href:
+        for href, slug, inner_html in raw_pairs:
+            if slug in SKIP_SLUGS or slug in seen_slugs:
                 continue
-            if href in seen_urls:
-                continue
-            seen_urls.add(href)
-            name = a.text(strip=True)
+            seen_slugs.add(slug)
+            # Strip tags from inner HTML to get text
+            name = re.sub(r"<[^>]+>", " ", inner_html).strip()
+            name = re.sub(r"\s+", " ", name).strip()
             if not name:
                 continue
-            url = href if href.startswith("http") else f"https://bill.tn{href}"
+            url = f"https://bill.tn{href}"
             categories.append({
                 "name": name,
                 "url": url,
@@ -60,35 +65,34 @@ class BillScraper(FastScraper):
                 "low_level_categories": [],
             })
 
-        # Mega-menu sub-items
-        sub_items = tree.css("div.dropdown-menu_wrapper ul.menu-list li.menu-item a[href*='/collections/']")
-        for a in sub_items:
-            href = a.attributes.get("href", "")
-            if not href or href in seen_urls:
+        # Also catch absolute URLs like href="https://bill.tn/collections/slug"
+        abs_pairs = re.findall(
+            r'<a[^>]+href="(https://bill\.tn/collections/([^"/\s?]+))[^"]*"[^>]*>(.*?)</a>',
+            html,
+            re.DOTALL | re.IGNORECASE,
+        )
+        for full_url, slug, inner_html in abs_pairs:
+            if slug in SKIP_SLUGS or slug in seen_slugs:
                 continue
-            seen_urls.add(href)
-            name = a.text(strip=True)
+            seen_slugs.add(slug)
+            name = re.sub(r"<[^>]+>", " ", inner_html).strip()
+            name = re.sub(r"\s+", " ", name).strip()
             if not name:
                 continue
-            url = href if href.startswith("http") else f"https://bill.tn{href}"
-            if categories:
-                categories[0]["low_level_categories"].append({
-                    "name": name,
-                    "url": url,
-                    "level": "low",
-                    "subcategories": [],
-                })
+            categories.append({
+                "name": name,
+                "url": full_url,
+                "level": "top",
+                "low_level_categories": [],
+            })
 
-        stats = {"top_level": len(categories), "low_level": 0, "subcategory": 0, "total_urls": 0}
-        for top in categories:
-            if top.get("url"):
-                stats["total_urls"] += 1
-            for low in top.get("low_level_categories", []):
-                stats["low_level"] += 1
-                if low.get("url"):
-                    stats["total_urls"] += 1
-
-        self.logger.info(f"Extracted {stats['top_level']} top, {stats['low_level']} low categories")
+        stats = {
+            "top_level": len(categories),
+            "low_level": 0,
+            "subcategory": 0,
+            "total_urls": len(categories),
+        }
+        self.logger.info(f"Extracted {len(categories)} categories (including sub-nav)")
         return {"categories": categories, "stats": stats}
 
     # ------------------------------------------------------------------

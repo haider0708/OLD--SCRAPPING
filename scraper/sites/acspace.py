@@ -26,61 +26,70 @@ class AcspaceScraper(FastScraper):
         return f"{base}{sep}paged={page_num}"
 
     # ------------------------------------------------------------------
-    # Categories — static links in Splide slider
+    # Categories — full page scan (nav dropdowns + Splide slider)
     # ------------------------------------------------------------------
 
-    def extract_categories_from_html(self, html: str) -> dict:
-        tree = HTMLParser(html)
-        categories = []
-        seen_urls = set()
+    # URL path segments that are not product categories
+    _NON_CATEGORY = {
+        "", "cart", "panier", "checkout", "account", "my-account", "login",
+        "register", "wishlist", "compare", "search", "feed", "sitemap",
+        "contact", "about", "politique", "cgv", "mentions-legales",
+        "wp-content", "wp-admin", "wp-json",
+    }
 
-        # Category links in the Splide slider
-        for a in tree.css(".splide__list a.brxe-text-link[href], .splide__slide a[href]"):
-            href = a.attributes.get("href", "")
-            if not href or href in seen_urls:
+    def extract_categories_from_html(self, html: str) -> dict:
+        # Use regex on raw HTML to capture ALL hrefs on the page — this gets
+        # both nav dropdowns and the Splide slider which are both static HTML.
+        seen_slugs: set = set()
+        categories = []
+
+        # Match absolute acspace.tn URLs with a single path segment (category slug)
+        # e.g. https://acspace.tn/informatique/ or https://acspace.tn/informatique
+        for m in re.finditer(
+            r'href="(https://acspace\.tn/([^/"?\s]+)/?)"',
+            html,
+            re.IGNORECASE,
+        ):
+            full_url, slug = m.group(1), m.group(2)
+            slug_lower = slug.lower()
+            if slug_lower in self._NON_CATEGORY or slug_lower in seen_slugs:
                 continue
-            # Only category-style paths (not homepage, not cart, etc.)
-            if href in ("/", "#") or any(x in href for x in ("cart", "panier", "account", "checkout")):
+            # Skip obvious non-category patterns
+            if slug_lower.startswith("wp-") or slug_lower.startswith("?") or "." in slug_lower:
                 continue
-            seen_urls.add(href)
-            name = a.text(strip=True)
-            if not name:
-                img = a.css_first("img")
-                name = img.attributes.get("alt", "") if img else ""
-            if not name:
-                continue
-            url = href if href.startswith("http") else f"https://acspace.tn{href}"
+            seen_slugs.add(slug_lower)
+            # Try to find anchor text just after href in raw HTML
+            # We'll collect names from the DOM instead
             categories.append({
-                "name": name,
-                "url": url,
+                "name": slug.replace("-", " ").title(),
+                "url": full_url.rstrip("/"),
                 "level": "top",
                 "low_level_categories": [],
             })
 
-        # Fallback: any nav links to category paths
-        if not categories:
-            for a in tree.css("nav a[href], header a[href]"):
-                href = a.attributes.get("href", "")
-                if not href or href in seen_urls:
-                    continue
-                if not re.search(r"/[a-z][a-z0-9-]{2,}/?$", href):
-                    continue
-                if any(x in href for x in ("cart", "panier", "account", "checkout", "wp-")):
-                    continue
-                seen_urls.add(href)
-                name = a.text(strip=True)
-                if not name:
-                    continue
-                url = href if href.startswith("http") else f"https://acspace.tn{href}"
-                categories.append({
-                    "name": name,
-                    "url": url,
-                    "level": "top",
-                    "low_level_categories": [],
-                })
+        # Now enrich names using selectolax DOM (visible text is available there)
+        tree = HTMLParser(html)
+        url_to_name: dict = {}
+        for a in tree.css("a[href]"):
+            href = a.attributes.get("href", "").rstrip("/")
+            if not href:
+                continue
+            name = a.text(strip=True)
+            if name and href not in url_to_name:
+                url_to_name[href] = name
+
+        for cat in categories:
+            clean_url = cat["url"].rstrip("/")
+            if clean_url in url_to_name:
+                cat["name"] = url_to_name[clean_url]
 
         self.logger.info(f"Found {len(categories)} categories")
-        stats = {"top_level": len(categories), "low_level": 0, "subcategory": 0, "total_urls": len(categories)}
+        stats = {
+            "top_level": len(categories),
+            "low_level": 0,
+            "subcategory": 0,
+            "total_urls": len(categories),
+        }
         return {"categories": categories, "stats": stats}
 
     # ------------------------------------------------------------------
