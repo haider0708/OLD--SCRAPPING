@@ -36,6 +36,13 @@ class KrichenScraper(FastScraper):
                 return child
         return None
 
+    def _absolute_url(self, href: str) -> str:
+        if href.startswith("http"):
+            return href
+        if href.startswith("/"):
+            return f"https://www.krichen-distribution.tn{href}"
+        return href
+
     def extract_categories_from_html(self, html: str) -> dict:
         tree = HTMLParser(html)
         categories = []
@@ -62,6 +69,7 @@ class KrichenScraper(FastScraper):
                 continue
             if any(x in href for x in ("cart", "panier", "account", "checkout", "contact", "blog")):
                 continue
+            href = self._absolute_url(href)
             if href in seen_urls:
                 continue
             seen_urls.add(href)
@@ -77,7 +85,10 @@ class KrichenScraper(FastScraper):
                     sub_href = sub_a.attributes.get("href", "")
                     sub_name_el = sub_a.css_first("span.nav-link-text") or sub_a
                     sub_name = sub_name_el.text(strip=True)
-                    if not sub_name or not sub_href or sub_href in seen_urls:
+                    if not sub_name or not sub_href:
+                        continue
+                    sub_href = self._absolute_url(sub_href)
+                    if sub_href in seen_urls:
                         continue
                     seen_urls.add(sub_href)
                     top_cat["low_level_categories"].append({

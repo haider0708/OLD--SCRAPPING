@@ -35,6 +35,14 @@ class TechgateScraper(FastScraper):
                 return child
         return None
 
+    def _absolute_url(self, href: str) -> str:
+        """Convert relative paths to absolute URLs using the site's base."""
+        if href.startswith("http"):
+            return href
+        if href.startswith("/"):
+            return f"https://techgate.tn{href}"
+        return href
+
     def extract_categories_from_html(self, html: str) -> dict:
         tree = HTMLParser(html)
         categories = []
@@ -49,7 +57,6 @@ class TechgateScraper(FastScraper):
         self.logger.info(f"Found {len(top_items)} top-level menu items")
 
         for li in top_items:
-            # Get the top-level link — the first direct child <a> of this <li>
             a = self._first_child_link(li)
             if not a:
                 continue
@@ -58,6 +65,7 @@ class TechgateScraper(FastScraper):
             name = name_el.text(strip=True)
             if not name or not href or href == "#":
                 continue
+            href = self._absolute_url(href)
             if href in seen_urls:
                 continue
             seen_urls.add(href)
@@ -74,7 +82,10 @@ class TechgateScraper(FastScraper):
                     sub_href = sub_a.attributes.get("href", "")
                     sub_name_el = sub_a.css_first("span.nav-link-text") or sub_a
                     sub_name = sub_name_el.text(strip=True)
-                    if not sub_name or not sub_href or sub_href in seen_urls:
+                    if not sub_name or not sub_href:
+                        continue
+                    sub_href = self._absolute_url(sub_href)
+                    if sub_href in seen_urls:
                         continue
                     seen_urls.add(sub_href)
                     top_cat["low_level_categories"].append({
