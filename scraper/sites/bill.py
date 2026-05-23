@@ -16,15 +16,18 @@ class BillScraper(FastScraper):
 
     def __init__(self, logger: logging.Logger):
         super().__init__("bill", logger)
+        self._pw = None
+        self._pw_browser = None
+        self._pw_ctx = None
 
     # ------------------------------------------------------------------
     # Pagination
     # ------------------------------------------------------------------
 
     def build_page_url(self, base_url: str, page_num: int) -> str:
-        # Shopify: /collections/{slug}/products.json?page=N&limit=250
-        # base_url is already the products.json URL for the collection
-        base = re.sub(r"[?&]page=\d+", "", base_url)
+        # Ensure we're using the products.json API URL, not the HTML collection URL
+        api_base = self._category_url_to_api_url(base_url)
+        base = re.sub(r"[?&]page=\d+", "", api_base)
         sep = "&" if "?" in base else "?"
         return f"{base}{sep}page={page_num}"
 
@@ -40,7 +43,7 @@ class BillScraper(FastScraper):
         # Shopify collections API — returns all collections as JSON
         api_url = "https://bill.tn/collections.json?limit=250"
         self.logger.info(f"Downloading bill.tn collections via API: {api_url}")
-        raw = await self.fetch_html(api_url)
+        raw = await self._fetch_via_playwright(api_url)
         if not raw:
             # Fall back to cached frontpage from a previous run if available
             if output_path.exists():
@@ -222,6 +225,63 @@ class BillScraper(FastScraper):
             url = f"{url}/products.json?limit=250"
         return url
 
+    async def scrape_category_page(self, url: str) -> dict:
+        """Override: fetch products.json via Playwright to bypass Cloudflare."""
+        api_url = self._category_url_to_api_url(url)
+        raw = await self._fetch_via_playwright(api_url)
+        if not raw:
+            return {"products": [], "pagination": {"total_pages": 1}, "error": "Failed to fetch"}
+        try:
+            products = self.extract_products_from_html(raw)
+            pagination = self.extract_pagination_from_html(raw)
+        except Exception as e:
+            self.logger.debug(f"Error parsing {api_url}: {e}")
+            return {"products": [], "pagination": {"total_pages": 1}, "error": str(e)}
+        return {"products": products, "pagination": pagination}
+
+    async def _get_pw_browser(self):
+        """Return a shared (browser, context) pair, launching once per scraper instance."""
+        if not hasattr(self, "_pw") or self._pw is None:
+            from playwright.async_api import async_playwright
+            from scraper.base import random_ua, playwright_launch_args
+            self._pw = await async_playwright().start()
+            self._pw_browser = await self._pw.chromium.launch(
+                headless=True, args=playwright_launch_args()
+            )
+            self._pw_ctx = await self._pw_browser.new_context(user_agent=random_ua())
+        return self._pw_browser, self._pw_ctx
+
+    async def close(self):
+        """Close httpx clients and Playwright browser."""
+        await super().close()
+        if hasattr(self, "_pw_ctx") and self._pw_ctx:
+            await self._pw_ctx.close()
+        if hasattr(self, "_pw_browser") and self._pw_browser:
+            await self._pw_browser.close()
+        if hasattr(self, "_pw") and self._pw:
+            await self._pw.stop()
+        self._pw = None
+
+    async def _fetch_via_playwright(self, url: str) -> Optional[str]:
+        """Fetch a URL using a shared real browser to bypass Cloudflare."""
+        try:
+            _, ctx = await self._get_pw_browser()
+            page = await ctx.new_page()
+            try:
+                resp = await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                if resp and resp.status >= 400:
+                    return None
+                # For JSON API endpoints, extract raw body text (not the HTML wrapper)
+                body = await page.evaluate("document.body.innerText")
+                if body and body.strip().startswith("{"):
+                    return body
+                return await page.content()
+            finally:
+                await page.close()
+        except Exception as e:
+            self.logger.debug(f"Playwright fetch failed for {url}: {e}")
+            return None
+
     # ------------------------------------------------------------------
     # Price parsing — Shopify: "1060.00" or "1,060 DT"
     # ------------------------------------------------------------------
@@ -257,7 +317,7 @@ class BillScraper(FastScraper):
         handle = url.rstrip("/").rsplit("/products/", 1)[-1].split("?")[0]
         api_url = f"https://bill.tn/products/{handle}.json"
 
-        raw = await self.fetch_html(api_url)
+        raw = await self._fetch_via_playwright(api_url)
         if raw:
             try:
                 data = json.loads(raw)
