@@ -158,6 +158,10 @@ class MongoDBExporter:
                 "sigshop",
                 "qsnet",
                 "promouv",
+                "bill",
+                "techgate",
+                "acspace",
+                "krichen",
             ]:
                 return p
         return "unknown"
@@ -380,6 +384,10 @@ def export_latest_run():
         "scoop",
         "skymill",
         "wiki",
+        "bill",
+        "techgate",
+        "acspace",
+        "krichen",
     ]
 
     # 1. Export Merged Data

@@ -37,6 +37,10 @@ AVAILABLE_SCRAPERS = {
     "sigshop": "scraper.sites.sigshop",
     "qsnet": "scraper.sites.qsnet",
     "promouv": "scraper.sites.promouv",
+    "bill": "scraper.sites.bill",
+    "techgate": "scraper.sites.techgate",
+    "acspace": "scraper.sites.acspace",
+    "krichen": "scraper.sites.krichen",
 }
 
 

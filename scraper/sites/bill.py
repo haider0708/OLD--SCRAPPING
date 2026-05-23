@@ -1,0 +1,264 @@
+#!/usr/bin/env python3
+"""
+Bill.tn scraper — Shopify (Electro Theme), Cloudflare proxy only, httpx.
+Uses Shopify's /products.json API for listings (more reliable than HTML).
+"""
+
+import json
+import logging
+import re
+from typing import List, Optional
+from selectolax.parser import HTMLParser
+from scraper.base import FastScraper
+
+
+class BillScraper(FastScraper):
+
+    def __init__(self, logger: logging.Logger):
+        super().__init__("bill", logger)
+
+    # ------------------------------------------------------------------
+    # Pagination
+    # ------------------------------------------------------------------
+
+    def build_page_url(self, base_url: str, page_num: int) -> str:
+        # Shopify: /collections/{slug}/products.json?page=N&limit=250
+        # base_url is already the products.json URL for the collection
+        base = re.sub(r"[?&]page=\d+", "", base_url)
+        sep = "&" if "?" in base else "?"
+        return f"{base}{sep}page={page_num}"
+
+    # ------------------------------------------------------------------
+    # Categories
+    # ------------------------------------------------------------------
+
+    def extract_categories_from_html(self, html: str) -> dict:
+        tree = HTMLParser(html)
+        categories = []
+        seen_urls = set()
+
+        # Top-level nav links
+        top_items = tree.css("ul.menu-list > li.menu-item > a")
+        if not top_items:
+            top_items = tree.css("nav a[href*='/collections/']")
+
+        for a in top_items:
+            href = a.attributes.get("href", "")
+            if not href or "/collections/" not in href:
+                continue
+            if href in seen_urls:
+                continue
+            seen_urls.add(href)
+            name = a.text(strip=True)
+            if not name:
+                continue
+            url = href if href.startswith("http") else f"https://bill.tn{href}"
+            categories.append({
+                "name": name,
+                "url": url,
+                "level": "top",
+                "low_level_categories": [],
+            })
+
+        # Mega-menu sub-items
+        sub_items = tree.css("div.dropdown-menu_wrapper ul.menu-list li.menu-item a[href*='/collections/']")
+        for a in sub_items:
+            href = a.attributes.get("href", "")
+            if not href or href in seen_urls:
+                continue
+            seen_urls.add(href)
+            name = a.text(strip=True)
+            if not name:
+                continue
+            url = href if href.startswith("http") else f"https://bill.tn{href}"
+            if categories:
+                categories[0]["low_level_categories"].append({
+                    "name": name,
+                    "url": url,
+                    "level": "low",
+                    "subcategories": [],
+                })
+
+        stats = {"top_level": len(categories), "low_level": 0, "subcategory": 0, "total_urls": 0}
+        for top in categories:
+            if top.get("url"):
+                stats["total_urls"] += 1
+            for low in top.get("low_level_categories", []):
+                stats["low_level"] += 1
+                if low.get("url"):
+                    stats["total_urls"] += 1
+
+        self.logger.info(f"Extracted {stats['top_level']} top, {stats['low_level']} low categories")
+        return {"categories": categories, "stats": stats}
+
+    # ------------------------------------------------------------------
+    # Products — parse Shopify JSON API response
+    # ------------------------------------------------------------------
+
+    def extract_products_from_html(self, html: str) -> List[dict]:
+        # Shopify /products.json returns JSON, not HTML
+        try:
+            data = json.loads(html)
+            raw_products = data.get("products", [])
+        except (json.JSONDecodeError, AttributeError):
+            # Fallback: parse HTML product cards
+            return self._extract_products_from_html_fallback(html)
+
+        products = []
+        for p in raw_products:
+            variant = (p.get("variants") or [{}])[0]
+            price = self._parse_price(variant.get("price", ""))
+            compare_at = self._parse_price(variant.get("compare_at_price") or "")
+            image = None
+            if p.get("images"):
+                image = p["images"][0].get("src")
+            products.append({
+                "id": str(p.get("id", "")),
+                "url": f"https://bill.tn/products/{p.get('handle', '')}",
+                "name": p.get("title", ""),
+                "price": price,
+                "old_price": compare_at if compare_at and compare_at != price else None,
+                "image": image,
+                "sku": variant.get("sku") or str(p.get("id", "")),
+            })
+        return products
+
+    def _extract_products_from_html_fallback(self, html: str) -> List[dict]:
+        tree = HTMLParser(html)
+        products = []
+        for card in tree.css("product-card, section.product-card, li.product-card"):
+            a = card.css_first("a[href*='/products/']")
+            if not a:
+                continue
+            href = a.attributes.get("href", "")
+            url = href if href.startswith("http") else f"https://bill.tn{href}"
+            name_el = card.css_first("h3.product-card_title, h2, h3")
+            name = name_el.text(strip=True) if name_el else ""
+            price_el = card.css_first("div.price-sale, div.product-price, span.price")
+            price = self._parse_price(price_el.text(strip=True)) if price_el else None
+            img = card.css_first("img")
+            image = img.attributes.get("src") or img.attributes.get("data-src") if img else None
+            products.append({"id": None, "url": url, "name": name, "price": price, "image": image})
+        return products
+
+    # ------------------------------------------------------------------
+    # Pagination
+    # ------------------------------------------------------------------
+
+    def extract_pagination_from_html(self, html: str) -> dict:
+        # For JSON API responses, check if we got a full page of results
+        try:
+            data = json.loads(html)
+            products = data.get("products", [])
+            # Shopify default limit is 250; if we got fewer, it's the last page
+            has_next = len(products) >= 250
+            return {"current_page": 1, "total_pages": 999 if has_next else 1, "has_next": has_next}
+        except (json.JSONDecodeError, AttributeError):
+            pass
+
+        tree = HTMLParser(html)
+        next_link = tree.css_first("a[rel='next'], a.next")
+        has_next = next_link is not None
+        max_page = 1
+        for a in tree.css("ul.pagination a, ul.page-numbers a"):
+            try:
+                num = int(a.text(strip=True))
+                if num > max_page:
+                    max_page = num
+            except ValueError:
+                pass
+        return {"current_page": 1, "total_pages": max_page, "has_next": has_next}
+
+    # ------------------------------------------------------------------
+    # Override: category URL → Shopify JSON API URL
+    # ------------------------------------------------------------------
+
+    def _category_url_to_api_url(self, url: str) -> str:
+        """Convert /collections/{slug} to /collections/{slug}/products.json?limit=250"""
+        url = url.rstrip("/")
+        if "/products.json" not in url:
+            url = f"{url}/products.json?limit=250"
+        return url
+
+    # ------------------------------------------------------------------
+    # Price parsing — Shopify: "1060.00" or "1,060 DT"
+    # ------------------------------------------------------------------
+
+    def _parse_price(self, text: str) -> Optional[float]:
+        if not text:
+            return None
+        text = str(text)
+        cleaned = re.sub(r"[^\d.,]", "", text).strip()
+        if not cleaned:
+            return None
+        # Shopify API gives "1060.00" (dot = decimal)
+        if "." in cleaned and "," not in cleaned:
+            try:
+                return float(cleaned)
+            except ValueError:
+                return None
+        # HTML text: "1,060 DT" — comma = thousands separator
+        if "," in cleaned:
+            cleaned = cleaned.replace(",", "")
+        try:
+            return float(cleaned) if cleaned else None
+        except ValueError:
+            return None
+
+    # ------------------------------------------------------------------
+    # Product detail
+    # ------------------------------------------------------------------
+
+    async def scrape_product_details(self, url: str) -> dict:
+        # Use Shopify product JSON endpoint
+        handle = url.rstrip("/").split("/products/")[-1]
+        json_url = f"https://bill.tn/products/{handle}.js"
+        html = await self.fetch_html(json_url)
+        if html:
+            try:
+                p = json.loads(html)
+                variant = (p.get("variants") or [{}])[0]
+                price = self._parse_price(str(variant.get("price", "")))
+                compare_at = self._parse_price(str(variant.get("compare_at_price") or ""))
+                images = [img.get("src") for img in (p.get("images") or []) if img.get("src")]
+                return {
+                    "url": url,
+                    "product_id": str(p.get("id", "")),
+                    "title": p.get("title"),
+                    "sku": variant.get("sku"),
+                    "price": price,
+                    "old_price": compare_at if compare_at and compare_at != price else None,
+                    "availability": "En stock" if variant.get("available") else "Rupture de stock",
+                    "available": variant.get("available", False),
+                    "description": re.sub(r"<[^>]+>", " ", p.get("body_html") or "").strip(),
+                    "images": images[:10],
+                    "specifications": {},
+                }
+            except (json.JSONDecodeError, AttributeError):
+                pass
+
+        # Fallback: parse HTML product page
+        html = await self.fetch_html(url)
+        if not html:
+            return {"url": url, "error": "Failed to fetch"}
+        tree = HTMLParser(html)
+        data = {"url": url}
+        title_el = tree.css_first("h1.product-single__title, h1[itemprop='name'], h1")
+        data["title"] = title_el.text(strip=True) if title_el else None
+        price_el = tree.css_first("span.product-price__price, span[itemprop='price'], span.price")
+        data["price"] = self._parse_price(price_el.text(strip=True)) if price_el else None
+        sku_el = tree.css_first("span.product-single__sku-number, span.sku")
+        data["sku"] = sku_el.text(strip=True) if sku_el else None
+        desc_el = tree.css_first("div.product-single__description, div.product__description")
+        data["description"] = desc_el.text(strip=True) if desc_el else None
+        stock_el = tree.css_first("span.product-single__availability")
+        data["availability"] = stock_el.text(strip=True) if stock_el else None
+        data["available"] = "stock" in (data["availability"] or "").lower()
+        images = [img.attributes.get("src") for img in tree.css("div.product-single__media img") if img.attributes.get("src")]
+        data["images"] = images[:10]
+        data["specifications"] = {}
+        return data
+
+
+def get_scraper(logger: logging.Logger) -> BillScraper:
+    return BillScraper(logger)

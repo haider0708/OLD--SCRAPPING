@@ -41,6 +41,10 @@ SHOPS = [
     "scoop",
     "skymill",
     "wiki",
+    "bill",
+    "techgate",
+    "acspace",
+    "krichen",
 ]
 
 

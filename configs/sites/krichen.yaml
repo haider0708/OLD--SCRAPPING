@@ -1,0 +1,49 @@
+# Krichen-distribution.tn - WordPress + WooCommerce + Woodmart theme, httpx, no Cloudflare
+# Infinite scroll on frontend but WooCommerce serves paginated HTML at /page/{N}/
+base_url: "https://www.krichen-distribution.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+
+selectors:
+  frontpage:
+    wait_selector: "ul#menu-main-navigation li.menu-item a"
+    nav_container: "ul#menu-main-navigation"
+    top_level_blocks: "ul#menu-main-navigation > li.menu-item"
+    top_level_link: "a.woodmart-nav-link"
+    top_level_name: "span.nav-link-text"
+    sub_menu: "ul.wd-sub-menu, ul.sub-menu"
+    low_level_link: "ul.sub-menu li.menu-item a"
+
+  category_page:
+    item_selector: "div.wd-product.wd-col, li.product.type-product"
+    item_name: "h2.wd-entities-title > a, h3.wd-entities-title > a"
+    item_url: "h2.wd-entities-title > a"
+    item_image: "img.attachment-woocommerce_thumbnail, img.wp-post-image"
+    item_image_attrs: ["data-src", "src"]
+    item_price: "span.price > span.woocommerce-Price-amount.amount > bdi"
+    item_old_price: "span.price > del span.woocommerce-Price-amount.amount > bdi"
+    pagination_next: "a.next.page-numbers"
+    pagination_pages: "ul.page-numbers a.page-numbers"
+    pagination_param: "page"
+    pagination_path: "/page/{n}/"
+
+  product_page:
+    title: "h1.product_title.entry-title, h1.product_title"
+    price: "p.price span.woocommerce-Price-amount bdi"
+    old_price: "p.price del span.woocommerce-Price-amount bdi"
+    sku: ".sku_wrapper span.sku, span.sku"
+    brand: "div.product-brands a"
+    availability_in_stock: "p.stock.in-stock"
+    availability_out: "p.stock.out-of-stock"
+    description: "div.woocommerce-product-details__short-description"
+    specs_container: "table.shop_attributes"
+    specs_key: "th"
+    specs_value: "td"
+    image_main: "div.woocommerce-product-gallery__image img"
+    image_gallery: "div.woocommerce-product-gallery__image:not(:first-child) img"
