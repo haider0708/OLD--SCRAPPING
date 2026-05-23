@@ -1,0 +1,41 @@
+# BestBuy Tunisie - Full Playwright scraper
+# Platform: WordPress + WooCommerce + Elementor (JS-rendered)
+base_url: "https://bestbuytunisie.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 45
+  page_timeout: 45000
+  wait_after_load: 3
+
+selectors:
+  frontpage:
+    wait_selector: ".xts-sub-menu > li > a, ul#menu-main-menu > li > a"
+    nav_container: ".xts-extra-menu-list, .xts-navigation-off-canvas"
+    top_level_blocks: ".xts-sub-menu > li, ul#menu-main-menu > li"
+    top_level_link: "a"
+    low_level_items: "ul.sub-sub-menu > li > a, ul.sub-menu > li > a"
+
+  category_page:
+    item_selector: "li.product.type-product, div.product-grid-item"
+    item_name: "h3.woocommerce-loop-product__title, h2.woocommerce-loop-product__title"
+    item_url: "a.woocommerce-LoopProduct-link"
+    item_image: "img.attachment-woocommerce_thumbnail, img.wp-post-image"
+    item_image_attrs: ["src", "data-src"]
+    item_price: "span.price ins span.woocommerce-Price-amount, span.price span.woocommerce-Price-amount"
+    item_old_price: "span.price del span.woocommerce-Price-amount"
+    pagination_next: "a.next.page-numbers"
+
+  product_page:
+    title: "h1.product_title.entry-title, h1.product_title"
+    price: "p.price ins span.woocommerce-Price-amount bdi, p.price span.woocommerce-Price-amount bdi"
+    old_price: "p.price del span.woocommerce-Price-amount bdi"
+    sku: "span.sku"
+    brand: "div.product_meta span.posted_in a, .woocommerce-product-details__short-description strong"
+    availability: "p.stock"
+    description: "div.woocommerce-product-details__short-description"
+    image_main: "div.woocommerce-product-gallery__image img"
+    image_thumbnails: "ol.flex-control-thumbs li img"
+    image_thumb_attr: "src"

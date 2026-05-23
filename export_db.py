@@ -154,6 +154,10 @@ class MongoDBExporter:
                 "scoop",
                 "skymill",
                 "wiki",
+                "bestbuytunisie",
+                "sigshop",
+                "qsnet",
+                "promouv",
             ]:
                 return p
         return "unknown"

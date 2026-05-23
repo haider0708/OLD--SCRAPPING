@@ -33,6 +33,10 @@ AVAILABLE_SCRAPERS = {
     "scoop": "scraper.sites.scoop",
     "skymill": "scraper.sites.skymill",
     "wiki": "scraper.sites.wiki",
+    "bestbuytunisie": "scraper.sites.bestbuytunisie",
+    "sigshop": "scraper.sites.sigshop",
+    "qsnet": "scraper.sites.qsnet",
+    "promouv": "scraper.sites.promouv",
 }
 
 

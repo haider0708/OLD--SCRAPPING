@@ -47,6 +47,14 @@ sites:
     use_tor: false
   - name: wiki
     use_tor: false
+  - name: bestbuytunisie
+    use_tor: false
+  - name: sigshop
+    use_tor: false
+  - name: qsnet
+    use_tor: false
+  - name: promouv
+    use_tor: false
 
 # Interval between pipeline runs (in minutes)
 # 720 = 12 hours (recommended for production)
