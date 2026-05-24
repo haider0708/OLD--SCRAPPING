@@ -13,6 +13,7 @@ Usage:
 import argparse
 import asyncio
 import logging
+import os
 import sys
 import time
 from dataclasses import asdict, dataclass
@@ -304,6 +305,39 @@ def create_pipeline(
     )
 
 
+def acquire_pipeline_lock(lock_path: Path) -> Optional[int]:
+    """Acquire an exclusive lock file. Returns the file descriptor on success, None if
+    another pipeline is already running.
+
+    Stores the current PID in the lock file. If a stale lock from a dead process exists,
+    we override it so the cron can recover automatically.
+    """
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    if lock_path.exists():
+        try:
+            existing_pid = int(lock_path.read_text().strip())
+        except (ValueError, OSError):
+            existing_pid = None
+        if existing_pid:
+            try:
+                os.kill(existing_pid, 0)
+                # Process is alive — another pipeline really is running
+                return None
+            except OSError:
+                # Stale lock — process is gone, safe to take over
+                pass
+    lock_path.write_text(str(os.getpid()))
+    return os.getpid()
+
+
+def release_pipeline_lock(lock_path: Path):
+    try:
+        if lock_path.exists():
+            lock_path.unlink()
+    except OSError:
+        pass
+
+
 async def main():
     parser = argparse.ArgumentParser(description="Automated scraping pipeline")
     subparsers = parser.add_subparsers(dest="cmd", help="Command to run")
@@ -320,20 +354,37 @@ async def main():
     run_parser.add_argument(
         "--config", default="configs/pipeline_config.yaml", help="Config file path"
     )
+    run_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Bypass the single-instance lock (use only when sure)",
+    )
 
     args = parser.parse_args()
 
     if args.cmd == "run":
-        # Automated scraping run
-        pipeline = create_pipeline(args.config)
+        lock_path = Path("data") / ".pipeline.lock"
+        lock_pid = None
+        if not args.force:
+            lock_pid = acquire_pipeline_lock(lock_path)
+            if lock_pid is None:
+                running_pid = lock_path.read_text().strip()
+                print(
+                    f"❌ Another pipeline is already running (PID {running_pid}). "
+                    f"Exiting to avoid duplicate runs. Use --force to override."
+                )
+                return
 
-        if args.sites:
-            pipeline.sites = args.sites
-
-        if args.interval:
-            pipeline.interval_minutes = args.interval
-
-        await pipeline.run(continuous=not args.once)
+        try:
+            pipeline = create_pipeline(args.config)
+            if args.sites:
+                pipeline.sites = args.sites
+            if args.interval:
+                pipeline.interval_minutes = args.interval
+            await pipeline.run(continuous=not args.once)
+        finally:
+            if lock_pid is not None:
+                release_pipeline_lock(lock_path)
 
     else:
         parser.print_help()
