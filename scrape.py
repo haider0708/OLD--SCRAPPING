@@ -702,6 +702,53 @@ async def scrape_categories_playwright(scraper, categories_list, num_workers, st
     return results
 
 
+def _listing_fingerprint(item: dict) -> tuple:
+    """Stable hash of the listing fields that should trigger a detail re-scrape if they change."""
+    return (
+        item.get("price"),
+        item.get("old_price"),
+        (item.get("name") or "").strip(),
+        item.get("image"),
+        item.get("availability"),
+        item.get("available"),
+    )
+
+
+def load_previous_details_cache(site_name: str, current_ts: str) -> dict:
+    """Load products_detailed.json from the most recent prior run for this site.
+
+    Returns a dict mapping product url -> previous detailed product record.
+    The record carries the listing fingerprint we captured last time so we can compare.
+    """
+    site_dir = DATA_DIR / site_name
+    if not site_dir.exists():
+        return {}
+    candidates = []
+    for d in site_dir.iterdir():
+        if not d.is_dir() or d.name == current_ts:
+            continue
+        if not (d.name[0].isdigit() and "_" in d.name):
+            continue
+        det = d / "products_detailed.json"
+        if det.exists():
+            candidates.append((d.name, det))
+    if not candidates:
+        return {}
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    _, latest_det = candidates[0]
+    try:
+        prev = load_json(latest_det)
+    except Exception:
+        return {}
+    if not isinstance(prev, list):
+        return {}
+    cache = {}
+    for rec in prev:
+        if isinstance(rec, dict) and rec.get("url"):
+            cache[rec["url"]] = rec
+    return cache
+
+
 async def scrape_details_fast(scraper, items, num_workers, pbar):
     results = {}
     sem = asyncio.Semaphore(num_workers)
@@ -768,7 +815,7 @@ async def scrape_details_playwright(scraper, items, num_workers, pbar):
     return results
 
 
-async def run_full_scrape(site_name, num_workers=16, detail_workers=64, limit=None, logger=None, scrape_details=True):
+async def run_full_scrape(site_name, num_workers=16, detail_workers=64, limit=None, logger=None, scrape_details=True, use_detail_cache=True):
     if logger is None:
         logger = setup_logger(site_name)
     
@@ -790,6 +837,7 @@ async def run_full_scrape(site_name, num_workers=16, detail_workers=64, limit=No
         scraper = get_scraper(site_name, logger)
         scraper._current_data_dir = DATA_DIR / site_name / ts
         scraper._current_data_dir.mkdir(parents=True, exist_ok=True)
+        scraper._no_detail_cache = not use_detail_cache
         if scrape_details and not should_scrape_details(scraper, requested=True):
             scrape_details = False
             print_info("Details disabled by site config")
@@ -997,63 +1045,95 @@ async def run_full_scrape(site_name, num_workers=16, detail_workers=64, limit=No
         print_step(4, "Scraping product details")
         t0 = time.time()
 
-        # Collect all product URLs with category information
+        # Collect all product URLs with category information AND listing fields
+        # (listing fields are needed so we can compare against the previous run's
+        # detail cache and skip re-fetching detail pages for unchanged products.)
+        def _listing_item(p, top, low, sub):
+            return {
+                "id": p.get("id"),
+                "url": p["url"],
+                "top_category": top,
+                "low_category": low,
+                "subcategory": sub,
+                "price": p.get("price"),
+                "old_price": p.get("old_price"),
+                "name": p.get("name"),
+                "image": p.get("image"),
+                "availability": p.get("availability"),
+                "available": p.get("available"),
+            }
+
         product_items = []
         for tc in cat_data.get("categories", []):
             top_category = tc.get("name", "")
-
-            # Add products directly in top-level categories
             for p in tc.get("products", []):
                 if p.get("url"):
-                    product_items.append({
-                        "id": p.get("id"),
-                        "url": p["url"],
-                        "top_category": top_category,
-                        "low_category": None,
-                        "subcategory": None
-                    })
-
+                    product_items.append(_listing_item(p, top_category, None, None))
             for lc in tc.get("low_level_categories", []):
                 low_category = lc.get("name", "")
-                # Add products directly in low-level categories
                 for p in lc.get("products", []):
                     if p.get("url"):
-                        product_items.append({
-                            "id": p.get("id"),
-                            "url": p["url"],
-                            "top_category": top_category,
-                            "low_category": low_category,
-                            "subcategory": None
-                        })
-                # Add products in subcategories
+                        product_items.append(_listing_item(p, top_category, low_category, None))
                 for sc in lc.get("subcategories", []):
                     subcategory = sc.get("name", "")
                     for p in sc.get("products", []):
                         if p.get("url"):
-                            product_items.append({
-                                "id": p.get("id"),
-                                "url": p["url"],
-                                "top_category": top_category,
-                                "low_category": low_category,
-                                "subcategory": subcategory
-                            })
+                            product_items.append(_listing_item(p, top_category, low_category, subcategory))
 
         print_info(f"Found {len(product_items):,} product URLs to scrape details")
 
-        # Scrape details for each product URL (completely independent)
-        items = product_items
+        # Load previous run's details and partition items into cached vs to-fetch
+        use_cache = not getattr(scraper, "_no_detail_cache", False)
+        prev_cache = load_previous_details_cache(site_name, ts) if use_cache else {}
+        reused_records = []  # list of detail records reused as-is from previous run
+        items = []  # items that actually need their detail page re-fetched
 
-        pbar = tqdm(total=len(items), desc=f"  {Colors.MAGENTA}Details{Colors.RESET}", bar_format="{desc}:   {percentage:3.0f}%|{bar:30}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]", ncols=80)
+        if prev_cache:
+            for it in product_items:
+                prev = prev_cache.get(it["url"])
+                if not prev:
+                    items.append(it)
+                    continue
+                prev_fp = prev.get("_listing_fp")
+                if prev_fp is None or list(prev_fp) != list(_listing_fingerprint(it)):
+                    items.append(it)
+                    continue
+                # Cache hit: refresh category info and timestamp metadata, reuse the rest
+                refreshed = dict(prev)
+                refreshed["top_category"] = it.get("top_category")
+                refreshed["low_category"] = it.get("low_category")
+                refreshed["subcategory"] = it.get("subcategory")
+                refreshed["_cached"] = True
+                refreshed["_cached_from"] = prev.get("scraped_at")
+                reused_records.append(refreshed)
+            print_info(
+                f"Cache: reused {len(reused_records):,} unchanged details, "
+                f"re-scraping {len(items):,} new/changed"
+            )
+            if logger:
+                logger.info(
+                    f"[shop.details.cache] site={site_name} reused={len(reused_records)} "
+                    f"to_fetch={len(items)} total={len(product_items)}"
+                )
+        else:
+            items = product_items
+
+        pbar = tqdm(total=len(items), desc=f"  {Colors.MAGENTA}Details{Colors.RESET}", bar_format="{desc}:   {percentage:3.0f}%|{bar:30}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]", ncols=80) if items else None
         try:
-            if is_fast_scraper(scraper):
-                det_res = await scrape_details_fast(scraper, items, detail_workers, pbar)
+            if items:
+                if is_fast_scraper(scraper):
+                    det_res = await scrape_details_fast(scraper, items, detail_workers, pbar)
+                else:
+                    det_res = await scrape_details_playwright(scraper, items, detail_workers, pbar)
             else:
-                det_res = await scrape_details_playwright(scraper, items, detail_workers, pbar)
+                det_res = {}
         finally:
-            pbar.close()
+            if pbar is not None:
+                pbar.close()
 
         # Create completely separate detailed products data structure
-        detailed_products = []
+        detailed_products = list(reused_records)
+        det_count = len(reused_records)
         failed_details = []
 
         for item in items:
@@ -1085,14 +1165,17 @@ async def run_full_scrape(site_name, num_workers=16, detail_workers=64, limit=No
                 "low_category": item.get("low_category"),
                 "subcategory": item.get("subcategory"),
                 **det,  # Include all fields from detailed scraping
-                "available": available_value  # Override with processed value
+                "available": available_value,  # Override with processed value
+                "_listing_fp": list(_listing_fingerprint(item)),  # used for next-run cache comparison
             }
 
             detailed_products.append(detailed_product)
             det_count += 1
 
-        fail_det = len(items) - det_count
-        print_success(f"Scraped {det_count:,}/{len(items):,} product details in {time.time()-t0:.1f}s")
+        total_attempted = len(product_items)
+        fail_det = total_attempted - det_count
+        cache_note = f" ({len(reused_records):,} reused from cache)" if reused_records else ""
+        print_success(f"Scraped {det_count:,}/{total_attempted:,} product details in {time.time()-t0:.1f}s{cache_note}")
         if fail_det > 0:
             print_info(f"{Colors.RED}{fail_det:,}{Colors.RESET} details failed")
             if logger:
@@ -1448,6 +1531,7 @@ async def main():
     fp.add_argument("--workers", type=int, default=16)
     fp.add_argument("--detail-workers", type=int, default=64)
     fp.add_argument("--no-details", action="store_true")
+    fp.add_argument("--no-cache", action="store_true", help="Force re-fetching all detail pages (skip incremental cache)")
     fp.add_argument("--export", action="store_true", help="Export to DB after scrape")
 
     sub.add_parser("list", help="List sites")
@@ -1467,7 +1551,7 @@ async def main():
             export_latest_run()
             
     elif args.cmd == "full":
-        await run_full_scrape(args.site, args.workers, args.detail_workers, scrape_details=not args.no_details)
+        await run_full_scrape(args.site, args.workers, args.detail_workers, scrape_details=not args.no_details, use_detail_cache=not args.no_cache)
         if args.export:
             from export_db import export_latest_run
             export_latest_run()
