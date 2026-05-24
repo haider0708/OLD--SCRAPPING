@@ -649,8 +649,10 @@ async def scrape_categories_fast(scraper, categories_list, num_workers, pbar):
     async def worker(cat):
         async with sem:
             try:
-                prods = await scraper.scrape_all_pages(cat.url)
+                prods = await asyncio.wait_for(scraper.scrape_all_pages(cat.url), timeout=180)
                 results[cat.url] = {"category": cat, "products": prods, "success": True}
+            except asyncio.TimeoutError:
+                results[cat.url] = {"category": cat, "products": [], "success": False, "error": "category_timeout"}
             except Exception as e:
                 results[cat.url] = {"category": cat, "products": [], "success": False, "error": str(e)}
             finally:
@@ -683,8 +685,10 @@ async def scrape_categories_playwright(scraper, categories_list, num_workers, st
                                 break
                             continue
                         try:
-                            prods = await scraper.scrape_category_all_pages(ctx, cat, stats)
+                            prods = await asyncio.wait_for(scraper.scrape_category_all_pages(ctx, cat, stats), timeout=240)
                             results[cat.url] = {"category": cat, "products": prods, "success": True}
+                        except asyncio.TimeoutError:
+                            results[cat.url] = {"category": cat, "products": [], "success": False, "error": "category_timeout"}
                         except Exception as e:
                             results[cat.url] = {"category": cat, "products": [], "success": False, "error": str(e)}
                         finally:
