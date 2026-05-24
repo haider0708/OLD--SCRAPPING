@@ -55,6 +55,14 @@ sites:
     use_tor: false
   - name: promouv
     use_tor: false
+  - name: acspace
+    use_tor: false
+  - name: bill
+    use_tor: false
+  - name: krichen
+    use_tor: false
+  - name: techgate
+    use_tor: false
 
 # Interval between pipeline runs (in minutes)
 # 720 = 12 hours (recommended for production)
