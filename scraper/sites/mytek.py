@@ -6,11 +6,13 @@ Mytek.tn specific scraper implementation.
 import asyncio
 import logging
 from typing import List
+from pathlib import Path
 
-from playwright.async_api import BrowserContext, Page
+from playwright.async_api import BrowserContext, Page, async_playwright
 from selectolax.parser import HTMLParser
 
-from scraper.base import BaseScraper, CategoryInfo, ScrapeStats
+from scraper.base import BaseScraper, CategoryInfo, ScrapeStats, playwright_launch_args, save_text_atomic
+from scraper.stealth import random_ua
 
 
 class MytekScraper(BaseScraper):
@@ -18,6 +20,32 @@ class MytekScraper(BaseScraper):
 
     def __init__(self, logger: logging.Logger):
         super().__init__("mytek", logger)
+
+    async def download_frontpage(self) -> Path:
+        """Use domcontentloaded — mytek's background XHR prevents networkidle from ever firing."""
+        output_path = self.html_dir / "frontpage.html"
+        self.logger.info(f"📥 Downloading (Playwright): {self.base_url}")
+
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch(headless=True, args=playwright_launch_args())
+            ctx = await browser.new_context(user_agent=random_ua())
+            page = await ctx.new_page()
+            try:
+                await page.goto(self.base_url, wait_until="domcontentloaded", timeout=self.page_timeout)
+                # Wait for the vertical category nav to appear
+                try:
+                    await page.wait_for_selector("li.rootverticalnav", timeout=15000)
+                except Exception:
+                    self.logger.warning("Mytek category nav not found, continuing")
+                html = await page.content()
+            finally:
+                await page.close()
+                await ctx.close()
+                await browser.close()
+
+        save_text_atomic(html, output_path, self.logger)
+        self.logger.info(f"✓ Saved: {output_path} ({len(html):,} bytes)")
+        return output_path
 
     def get_wait_selector(self) -> str:
         """CSS selector to wait for — mytek's SEO data layer is in static HTML."""

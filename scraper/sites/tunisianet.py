@@ -1,22 +1,50 @@
 #!/usr/bin/env python3
 """
 TunisiaNet.com.tn specific scraper implementation.
-Uses fast HTTP-based scraping (httpx + selectolax).
+Uses Playwright for frontpage (Cloudflare), httpx for category/product pages.
 """
 import logging
 import re
+from pathlib import Path
 from typing import List, Optional
 from selectolax.parser import HTMLParser
 
-from scraper.base import FastScraper
+from scraper.base import FastScraper, playwright_launch_args, save_text_atomic
+from scraper.stealth import random_ua
 
 
 class TunisiaNetScraper(FastScraper):
-    """Fast scraper for tunisianet.com.tn e-commerce site."""
-    
+    """Scraper for tunisianet.com.tn — Playwright frontpage, httpx category pages."""
+
     def __init__(self, logger: logging.Logger):
         super().__init__("tunisianet", logger)
-    
+
+    async def download_frontpage(self) -> Path:
+        """Use Playwright for frontpage — tunisianet's Cloudflare blocks repeat httpx requests."""
+        from playwright.async_api import async_playwright
+        output_path = self.html_dir / "frontpage.html"
+        self.logger.info(f"📥 Downloading (Playwright): {self.base_url}")
+
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch(headless=True, args=playwright_launch_args())
+            ctx = await browser.new_context(user_agent=random_ua())
+            page = await ctx.new_page()
+            try:
+                await page.goto(self.base_url, wait_until="domcontentloaded", timeout=60000)
+                try:
+                    await page.wait_for_selector("li.level-1.parent", timeout=15000)
+                except Exception:
+                    self.logger.warning("TunisiaNet menu not found, continuing")
+                html = await page.content()
+            finally:
+                await page.close()
+                await ctx.close()
+                await browser.close()
+
+        save_text_atomic(html, output_path, self.logger)
+        self.logger.info(f"✓ Saved: {output_path} ({len(html):,} bytes)")
+        return output_path
+
     def build_page_url(self, base_url: str, page_num: int) -> str:
         """Build paginated URL for TunisiaNet."""
         if "?" in base_url:

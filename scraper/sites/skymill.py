@@ -118,9 +118,9 @@ class SkymillScraper(FastScraper):
             resp = await page.goto(url, wait_until="networkidle", timeout=45000)
             status_code = resp.status if resp else None
             final_url = page.url
-            # Wait for product cards to appear (catalogue pages)
+            # Wait for product links to appear (Tailwind — no fixed class name)
             try:
-                await page.wait_for_selector("div.card-product, div[class*='card-product']", timeout=8000)
+                await page.wait_for_selector("a[href*='/produit/']", timeout=8000)
             except Exception:
                 pass
             html = await page.content()
@@ -352,13 +352,36 @@ class SkymillScraper(FastScraper):
         products = []
         seen_urls = set()
 
-        items = tree.css("div.card-product")
+        # Skymill uses Tailwind utility classes — no fixed "card-product" class.
+        # Cards are identified by bg-card token. Fall back to scanning product links.
+        items = tree.css("div[class*='bg-card'][class*='rounded']")
+        if not items:
+            # Build synthetic items from product links
+            seen_urls = set()
+            for link in tree.css("a[href*='/produit/']"):
+                href = link.attributes.get("href", "")
+                product_url = self._make_absolute_url(href)
+                if not product_url or product_url in seen_urls:
+                    continue
+                seen_urls.add(product_url)
+                name_el = link.css_first("p, span, h3, h2")
+                product_name = self._clean_text(name_el.text(strip=True)) if name_el else self._clean_text(link.text(strip=True))
+                img_el = link.css_first("img")
+                image = None
+                if img_el:
+                    src = img_el.attributes.get("src") or img_el.attributes.get("data-src")
+                    if src and not src.startswith("data:"):
+                        image = src
+                slug_match = re.search(r"/produit/(.+?)(?:-tunisie)?(?:/|\?|$)", href)
+                product_id = slug_match.group(1) if slug_match else href.rsplit("/", 1)[-1]
+                products.append({"id": product_id, "url": product_url, "name": product_name, "image": image})
+            if products:
+                return products
 
         for item in items:
             # URL — /produit/{slug}-tunisie
             link_el = item.css_first("a[href*='/produit/']")
             if not link_el:
-                # Try any link in the card
                 link_el = item.css_first("a[href]")
             if not link_el:
                 continue
