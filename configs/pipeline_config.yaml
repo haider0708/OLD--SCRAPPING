@@ -5,10 +5,7 @@
 # use_tor: true  → route through Tor pool (for sites that block/rate-limit)
 # use_tor: false → direct connection (default, faster, recommended when not blocked)
 sites:
-  - name: mytek
-    use_tor: false
-  - name: tunisianet
-    use_tor: false
+  # === VPS sites (no Cloudflare block) ===
   - name: technopro
     use_tor: false
   - name: spacenet
@@ -17,15 +14,11 @@ sites:
     use_tor: false
   - name: darty
     use_tor: false
-  - name: graiet
-    use_tor: false
   - name: batam
     use_tor: false
   - name: zoom
     use_tor: false
   - name: allani
-    use_tor: false
-  - name: expert_gaming
     use_tor: false
   - name: geant
     use_tor: false
@@ -41,23 +34,11 @@ sites:
     use_tor: false
   - name: sbs
     use_tor: false
-  - name: scoop
-    use_tor: false
-  - name: skymill
-    use_tor: false
-  - name: wiki
-    use_tor: false
-  - name: bestbuytunisie
-    use_tor: false
   - name: sigshop
     use_tor: false
   - name: qsnet
     use_tor: false
-  - name: promouv
-    use_tor: false
   - name: acspace
-    use_tor: false
-  - name: bill
     use_tor: false
   - name: krichen
     use_tor: false
@@ -73,6 +54,10 @@ sites:
     use_tor: false
   - name: agora
     use_tor: false
+
+  # === LOCAL PC only (Cloudflare-blocked on VPS) ===
+  # mytek, tunisianet, graiet, wiki, scoop, expert_gaming,
+  # bestbuytunisie, bill, promouv, skymill
 
 # Interval between pipeline runs (in minutes)
 # 720 = 12 hours (recommended for production)
