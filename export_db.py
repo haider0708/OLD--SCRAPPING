@@ -162,6 +162,11 @@ class MongoDBExporter:
                 "techgate",
                 "acspace",
                 "krichen",
+                "emh",
+                "maalejaudio",
+                "electrobennjima",
+                "kamounhome",
+                "agora",
             ]:
                 return p
         return "unknown"
@@ -388,6 +393,11 @@ def export_latest_run():
         "techgate",
         "acspace",
         "krichen",
+        "emh",
+        "maalejaudio",
+        "electrobennjima",
+        "kamounhome",
+        "agora",
     ]
 
     # 1. Export Merged Data

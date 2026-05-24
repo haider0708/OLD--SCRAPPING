@@ -41,6 +41,11 @@ AVAILABLE_SCRAPERS = {
     "techgate": "scraper.sites.techgate",
     "acspace": "scraper.sites.acspace",
     "krichen": "scraper.sites.krichen",
+    "emh": "scraper.sites.emh",
+    "maalejaudio": "scraper.sites.maalejaudio",
+    "electrobennjima": "scraper.sites.electrobennjima",
+    "kamounhome": "scraper.sites.kamounhome",
+    "agora": "scraper.sites.agora",
 }
 
 

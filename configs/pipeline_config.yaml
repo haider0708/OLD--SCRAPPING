@@ -63,6 +63,16 @@ sites:
     use_tor: false
   - name: techgate
     use_tor: false
+  - name: emh
+    use_tor: false
+  - name: maalejaudio
+    use_tor: false
+  - name: electrobennjima
+    use_tor: false
+  - name: kamounhome
+    use_tor: false
+  - name: agora
+    use_tor: false
 
 # Interval between pipeline runs (in minutes)
 # 720 = 12 hours (recommended for production)
