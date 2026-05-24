@@ -254,15 +254,9 @@ class SimplePipeline:
             # elif len(self.sites) < 3:
             #     self.logger.warning(f"\n⚠️  Skipping merge: Need at least 3 sites (got {len(self.sites)})")
 
-            # Run Export
-            self.logger.info(f"\n{'=' * 70}")
-            self.logger.info("🔄 STARTING DATABASE EXPORT")
-            self.logger.info(f"{'=' * 70}")
-            try:
-                export_latest_run()
-                self.logger.info("✅ EXPORT COMPLETE")
-            except Exception as e:
-                self.logger.error(f"❌ EXPORT FAILED: {e}")
+            # Note: per-site MongoDB export already ran inside _process_site() after
+            # each successful scrape, so we skip the global export_latest_run() here
+            # to avoid re-uploading old data from sites that weren't part of this run.
 
             if not continuous:
                 break
