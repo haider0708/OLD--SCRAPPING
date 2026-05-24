@@ -710,8 +710,10 @@ async def scrape_details_fast(scraper, items, num_workers, pbar):
         async with sem:
             url = item["url"]
             try:
-                det = await scraper.scrape_product_details(url)
+                det = await asyncio.wait_for(scraper.scrape_product_details(url), timeout=60)
                 results[url] = {"details": det, "item": item, "success": True}
+            except asyncio.TimeoutError:
+                results[url] = {"item": item, "success": False, "error": "timeout"}
             except Exception as e:
                 results[url] = {"item": item, "success": False, "error": str(e)}
             finally:
@@ -745,8 +747,10 @@ async def scrape_details_playwright(scraper, items, num_workers, pbar):
                             continue
                         url = item["url"]
                         try:
-                            det = await scraper.scrape_product_details(page, url)
+                            det = await asyncio.wait_for(scraper.scrape_product_details(page, url), timeout=90)
                             results[url] = {"details": det, "item": item, "success": True}
+                        except asyncio.TimeoutError:
+                            results[url] = {"item": item, "success": False, "error": "timeout"}
                         except Exception as e:
                             results[url] = {"item": item, "success": False, "error": str(e)}
                         finally:
