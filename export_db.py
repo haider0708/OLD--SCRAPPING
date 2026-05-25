@@ -65,12 +65,27 @@ def history_sources_for_shop(shop_name: str) -> Dict[Path, str]:
     }
 
 
+# Shops that go to the new (second) MongoDB cluster instead of the default.
+NEW_DB_SHOPS = {"tunewtec", "gamershop", "megapc"}
+
+
+def _shop_from_collection(collection_name: str) -> str:
+    """Return the shop slug from a collection name like 'tunewtec_products'."""
+    if not collection_name:
+        return ""
+    return collection_name.split("_", 1)[0]
+
+
 class MongoDBExporter:
     def __init__(self):
         self.local_uri = os.getenv("MONGO_URI_LOCAL") or os.getenv("MONGO_URI_lslsl")
         self.atlas_uri = os.getenv("MONGO_URI")
+        self.atlas_uri_new = os.getenv("MONGO_URI_NEW")
         self.db_name = os.getenv("MONGO_DB_NAME", "Retails")
+        self.db_name_new = os.getenv("MONGO_DB_NAME_NEW", "Retails")
 
+        # clients is a list of (name, client, db_name, accepts_shop_fn)
+        # accepts_shop_fn(shop) returns True if this client should handle that shop.
         self.clients = []
 
         if MongoClient is None:
@@ -83,13 +98,13 @@ class MongoDBExporter:
         if self.local_uri:
             try:
                 client = MongoClient(self.local_uri, serverSelectionTimeoutMS=2000)
-                client.server_info()  # Check connection
-                self.clients.append(("local", client))
+                client.server_info()
+                self.clients.append(("local", client, self.db_name, lambda s: True))
                 logger.info(f"✅ Connected to Local MongoDB")
             except Exception as e:
                 logger.warning(f"⚠️ Could not connect to Local MongoDB: {e}")
 
-        # Connect Atlas
+        # Connect Atlas (primary) — handles shops NOT in NEW_DB_SHOPS
         if self.atlas_uri:
             try:
                 client = MongoClient(
@@ -98,16 +113,40 @@ class MongoDBExporter:
                     tlsCAFile=certifi.where(),
                 )
                 client.server_info()
-                self.clients.append(("atlas", client))
-                logger.info(f"✅ Connected to Atlas MongoDB")
+                self.clients.append((
+                    "atlas",
+                    client,
+                    self.db_name,
+                    lambda s: s not in NEW_DB_SHOPS,
+                ))
+                logger.info(f"✅ Connected to Atlas MongoDB (primary)")
             except Exception as e:
                 logger.warning(f"⚠️ Could not connect to Atlas MongoDB: {e}")
+
+        # Connect Atlas (new) — handles only shops in NEW_DB_SHOPS
+        if self.atlas_uri_new:
+            try:
+                client = MongoClient(
+                    self.atlas_uri_new,
+                    serverSelectionTimeoutMS=5000,
+                    tlsCAFile=certifi.where(),
+                )
+                client.server_info()
+                self.clients.append((
+                    "atlas-new",
+                    client,
+                    self.db_name_new,
+                    lambda s: s in NEW_DB_SHOPS,
+                ))
+                logger.info(f"✅ Connected to Atlas MongoDB (new — for {sorted(NEW_DB_SHOPS)})")
+            except Exception as e:
+                logger.warning(f"⚠️ Could not connect to Atlas MongoDB (new): {e}")
 
         if not self.clients:
             logger.error("❌ No database connections available.")
 
     def close(self):
-        for name, client in self.clients:
+        for name, client, _db, _fn in self.clients:
             client.close()
             logger.info(f"Closed {name} connection")
 
@@ -193,8 +232,12 @@ class MongoDBExporter:
             for s in ("_products_added", "_products_removed")
         )
 
-        for name, client in self.clients:
-            db = client[self.db_name]
+        shop = _shop_from_collection(collection_name)
+
+        for name, client, db_name, accepts_shop in self.clients:
+            if not accepts_shop(shop):
+                continue
+            db = client[db_name]
             coll = db[collection_name]
             now = datetime.now()
 
