@@ -106,38 +106,70 @@ class SkymillScraper(FastScraper):
         return meta.get("html")
 
     async def fetch_html_with_meta(self, url: str, raise_on_error: bool = False) -> dict:
-        """Fetch HTML via shared Playwright browser with probe metadata."""
+        """Fetch HTML via Playwright. Skymill 403s subsequent requests on a shared
+        context, so each fetch uses a fresh context and we retry once with a
+        delay if blocked."""
         started = time.monotonic()
-        await self._ensure_browser()
-        page = await self._pw_context.new_page()
         status_code = None
         final_url = url
         html = None
         error = None
-        try:
-            resp = await page.goto(url, wait_until="networkidle", timeout=45000)
-            status_code = resp.status if resp else None
-            final_url = page.url
-            # Wait for product cards to appear (Tailwind a.bg-card elements)
+        attempts = 0
+
+        for attempt in range(1, 4):  # up to 3 tries with fresh context each time
+            attempts = attempt
             try:
-                await page.wait_for_selector("a[class*='bg-card']", timeout=8000)
-            except Exception:
-                pass
-            html = await page.content()
-            if status_code and status_code >= 400:
-                error = f"HTTP {status_code}"
-                self.logger.debug(f"  {error} for {url}")
-            elif not html or not html.strip():
-                error = "empty_response"
-            elif is_blocked_response(html, status_code):
-                error = "blocked_response"
-        except Exception as e:
-            error = str(e) or e.__class__.__name__
-            self.logger.debug(f"  Error fetching {url}: {e}")
-            if raise_on_error:
-                raise
-        finally:
-            await page.close()
+                await self._ensure_browser()
+                ctx = await self._browser.new_context(
+                    user_agent=STEALTH_UA,
+                )
+                await ctx.add_init_script(STEALTH_JS)
+                page = await ctx.new_page()
+                try:
+                    resp = await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+                    status_code = resp.status if resp else None
+                    final_url = page.url
+                    try:
+                        await page.wait_for_selector(
+                            "a[class*='bg-card'], a[href*='/produit/']",
+                            timeout=15000,
+                        )
+                    except Exception:
+                        pass
+                    html = await page.content()
+                finally:
+                    await page.close()
+                    await ctx.close()
+
+                if status_code and status_code >= 400:
+                    error = f"HTTP {status_code}"
+                    if attempt < 3:
+                        await asyncio.sleep(2 + attempt * 2)
+                        continue
+                    break
+                if not html or not html.strip():
+                    error = "empty_response"
+                    if attempt < 3:
+                        await asyncio.sleep(2)
+                        continue
+                    break
+                if is_blocked_response(html, status_code):
+                    error = "blocked_response"
+                    if attempt < 3:
+                        await asyncio.sleep(2 + attempt * 2)
+                        continue
+                    break
+                error = None
+                break
+            except Exception as e:
+                error = str(e) or e.__class__.__name__
+                self.logger.debug(f"  Attempt {attempt} error fetching {url}: {e}")
+                if attempt < 3:
+                    await asyncio.sleep(2)
+                    continue
+                if raise_on_error:
+                    raise
+
         blocked_signals = detect_blocked_signals(html, status_code)
         if raise_on_error and error:
             raise RuntimeError(error)
@@ -147,7 +179,7 @@ class SkymillScraper(FastScraper):
             "final_url": final_url,
             "content_type": None,
             "content_encoding": None,
-            "attempts": 1,
+            "attempts": attempts,
             "elapsed_ms": int((time.monotonic() - started) * 1000),
             "blocked_signals": blocked_signals,
             "error": error,
@@ -352,21 +384,43 @@ class SkymillScraper(FastScraper):
         products = []
         seen_urls = set()
 
-        # Skymill uses Tailwind utility classes. Product cards are <a class="...bg-card..."> elements.
+        # Primary: anchor cards with bg-card class (works on /catalogue/{top})
         items = tree.css("a[class*='bg-card']")
+
+        # Fallback: nested categories like /catalogue/composants/disque-dur use a
+        # different layout — group <a href="/produit/..."> links by href and take
+        # an ancestor div as the card.
         if not items:
-            items = tree.css("div[class*='bg-card']")
+            seen_hrefs = set()
+            for a in tree.css("a[href*='/produit/']"):
+                href = a.attributes.get("href", "")
+                if not href or href in seen_hrefs:
+                    continue
+                seen_hrefs.add(href)
+                # Walk up to find a card-like container
+                node = a
+                for _ in range(6):
+                    if node.parent is None:
+                        break
+                    node = node.parent
+                    cls = node.attributes.get("class", "") if hasattr(node, "attributes") else ""
+                    if any(x in cls for x in ("group", "flex-col", "rounded", "border", "bg-white")):
+                        break
+                items.append(node)
 
         for item in items:
-            # If item is the <a> card itself, use it directly; otherwise find the link inside
-            if item.tag == "a":
+            # Prefer /produit/ link; fall back to first any-link
+            if item.tag == "a" and "/produit/" in item.attributes.get("href", ""):
                 link_el = item
             else:
-                link_el = item.css_first("a[href]")
+                link_el = item.css_first("a[href*='/produit/']") or item.css_first("a[href]")
             if not link_el:
                 continue
 
             href = link_el.attributes.get("href", "")
+            # Skip comparator / cart / non-product URLs
+            if any(x in href for x in ("/comparateur", "/cart", "?add=", "/login")):
+                continue
             product_url = self._make_absolute_url(href)
             if not product_url or product_url in seen_urls:
                 continue
@@ -376,13 +430,27 @@ class SkymillScraper(FastScraper):
             slug_match = re.search(r"/produit/(.+?)(?:-tunisie)?(?:/|$)", href)
             product_id = slug_match.group(1) if slug_match else href.rsplit("/", 1)[-1]
 
-            # Name — try text inside the card, fall back to img alt
-            name_el = item.css_first("p[class*='font-heading'], p[class*='font-bold'], p, span[class*='font-bold']")
-            product_name = self._clean_text(name_el.text(strip=True)) if name_el else ""
+            # Name — try the /produit/ anchor with font-heading font-bold (name link),
+            # then any anchor text, then img alt, then non-price p.
+            product_name = ""
+            for a in item.css("a[href*='/produit/']"):
+                a_cls = a.attributes.get("class", "")
+                if "font-bold" in a_cls or "line-clamp" in a_cls:
+                    txt = self._clean_text(a.text(strip=True))
+                    if txt and "DT" not in txt and not re.match(r"^\d", txt):
+                        product_name = txt
+                        break
             if not product_name:
                 img_el = item.css_first("img[alt]")
                 if img_el:
                     product_name = self._clean_text(img_el.attributes.get("alt", ""))
+            if not product_name:
+                # Fallback: any non-price text inside the card
+                for p in item.css("p"):
+                    txt = self._clean_text(p.text(strip=True))
+                    if txt and "DT" not in txt and not re.match(r"^[\d\s.,]+$", txt):
+                        product_name = txt
+                        break
 
             product_data = {
                 "id": product_id,
