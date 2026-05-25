@@ -1,0 +1,10 @@
+# MegaPC.tn - Custom Next.js SPA, requires Playwright (client-side rendering).
+base_url: "https://megapc.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 45
+  page_timeout: 60000
+  wait_after_load: 2

@@ -167,6 +167,9 @@ class MongoDBExporter:
                 "electrobennjima",
                 "kamounhome",
                 "agora",
+                "tunewtec",
+                "gamershop",
+                "megapc",
             ]:
                 return p
         return "unknown"
@@ -398,6 +401,9 @@ def export_latest_run():
         "electrobennjima",
         "kamounhome",
         "agora",
+        "tunewtec",
+        "gamershop",
+        "megapc",
     ]
 
     # 1. Export Merged Data

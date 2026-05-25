@@ -45,6 +45,14 @@ SHOPS = [
     "techgate",
     "acspace",
     "krichen",
+    "emh",
+    "maalejaudio",
+    "electrobennjima",
+    "kamounhome",
+    "agora",
+    "tunewtec",
+    "gamershop",
+    "megapc",
 ]
 
 

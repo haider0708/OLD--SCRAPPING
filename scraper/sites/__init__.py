@@ -46,6 +46,9 @@ AVAILABLE_SCRAPERS = {
     "electrobennjima": "scraper.sites.electrobennjima",
     "kamounhome": "scraper.sites.kamounhome",
     "agora": "scraper.sites.agora",
+    "tunewtec": "scraper.sites.tunewtec",
+    "gamershop": "scraper.sites.gamershop",
+    "megapc": "scraper.sites.megapc",
 }
 
 
