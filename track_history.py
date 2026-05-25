@@ -53,6 +53,11 @@ SHOPS = [
     "tunewtec",
     "gamershop",
     "megapc",
+    "yatoo",
+    "affariyet",
+    "chaktech",
+    "techland",
+    "bstech",
 ]
 
 

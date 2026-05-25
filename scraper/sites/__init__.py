@@ -49,6 +49,11 @@ AVAILABLE_SCRAPERS = {
     "tunewtec": "scraper.sites.tunewtec",
     "gamershop": "scraper.sites.gamershop",
     "megapc": "scraper.sites.megapc",
+    "yatoo": "scraper.sites.yatoo",
+    "affariyet": "scraper.sites.affariyet",
+    "chaktech": "scraper.sites.chaktech",
+    "techland": "scraper.sites.techland",
+    "bstech": "scraper.sites.bstech",
 }
 
 
