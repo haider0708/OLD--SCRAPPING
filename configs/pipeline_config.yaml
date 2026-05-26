@@ -54,10 +54,21 @@ sites:
     use_tor: false
   - name: agora
     use_tor: false
+  - name: yatoo
+    use_tor: false
+  - name: techland
+    use_tor: false
+  - name: bstech
+    use_tor: false
+  - name: tunewtec
+    use_tor: false
+  - name: gamershop
+    use_tor: false
 
   # === LOCAL PC only (Cloudflare-blocked on VPS) ===
   # mytek, tunisianet, graiet, wiki, scoop, expert_gaming,
-  # bestbuytunisie, bill, promouv, skymill
+  # bestbuytunisie, bill, promouv, skymill,
+  # affariyet, chaktech, megapc
 
 # Interval between pipeline runs (in minutes)
 # 720 = 12 hours (recommended for production)
