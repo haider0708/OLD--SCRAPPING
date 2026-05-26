@@ -31,9 +31,9 @@ class LamodeScraper(FastScraper):
         self._pw = None
         self._browser = None
         self._ctx = None
-        # Cloudflare rate-limits parallel fetches; serialize to one page at a time
-        # for the same browser context.
-        self._fetch_lock = asyncio.Semaphore(1)
+        # Allow up to 4 concurrent Playwright pages — each using a fresh
+        # context which makes Cloudflare treat them as independent visitors.
+        self._fetch_lock = asyncio.Semaphore(4)
 
     # ------------------------------------------------------------------
     # Shared Playwright browser (lazy init)
@@ -73,25 +73,24 @@ class LamodeScraper(FastScraper):
         html = None
         error = None
         # Cloudflare on lamode.tn 403s subsequent requests through the same
-        # browser context. Use a fresh context per fetch and retry up to 3
-        # times with growing delays.
+        # browser context. Use a fresh context per fetch (treated as a new
+        # visitor) and retry once on failure.
         async with self._fetch_lock:
-            for attempt in range(1, 4):
+            for attempt in range(1, 3):
                 ctx = await self._browser.new_context(user_agent=UA)
                 page = await ctx.new_page()
                 try:
-                    resp = await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+                    resp = await page.goto(url, wait_until="domcontentloaded", timeout=30000)
                     status_code = resp.status if resp else None
                     final_url = page.url
                     try:
                         await page.wait_for_selector(
                             "article.product-miniature, article.js-product-miniature, "
                             "h1.product-name, .product-details, h1",
-                            timeout=15000,
+                            timeout=8000,
                         )
                     except Exception:
                         pass
-                    await asyncio.sleep(0.5)
                     html = await page.content()
                 finally:
                     await page.close()
@@ -99,17 +98,16 @@ class LamodeScraper(FastScraper):
 
                 if status_code and status_code >= 400:
                     error = f"HTTP {status_code}"
-                    if attempt < 3:
-                        await asyncio.sleep(2 + attempt * 2)
+                    if attempt < 2:
+                        await asyncio.sleep(2)
                         continue
                     break
                 if not html or len(html) < 500:
                     error = "empty_response"
-                    if attempt < 3:
-                        await asyncio.sleep(2)
+                    if attempt < 2:
+                        await asyncio.sleep(1)
                         continue
                     break
-                # Success
                 error = None
                 break
         return {
@@ -133,27 +131,10 @@ class LamodeScraper(FastScraper):
         sep = "&" if "?" in base else "?"
         return f"{base}{sep}page={page_num}"
 
-    async def scrape_all_pages(self, category_url: str, limit: int = None):
-        """Override base impl: fetch pages SEQUENTIALLY (Cloudflare/Playwright
-        single-context can't handle 4 concurrent navigations reliably)."""
-        all_products = []
-        result = await self.scrape_category_page(category_url)
-        if result.get("error"):
-            return []
-        all_products.extend(result["products"])
-        total_pages = result.get("pagination", {}).get("total_pages", 1)
-        if total_pages <= 1:
-            return all_products[:limit] if limit else all_products
-        for page_num in range(2, total_pages + 1):
-            url = self.build_page_url(category_url, page_num)
-            res = await self.scrape_category_page(url)
-            if res.get("error"):
-                self.logger.debug(f"  Page {page_num} failed ({category_url}): {res['error']}")
-                continue
-            all_products.extend(res["products"])
-            if limit and len(all_products) >= limit:
-                break
-        return all_products[:limit] if limit else all_products
+    # NOTE: we removed the sequential override — the base class fires up to
+    # 4 concurrent page fetches per category, which is fine because each
+    # fetch uses a fresh browser context (Cloudflare treats them independently)
+    # and the per-instance semaphore caps total concurrency.
 
     # ------------------------------------------------------------------
     # URL helpers
