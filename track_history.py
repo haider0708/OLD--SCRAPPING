@@ -62,6 +62,8 @@ SHOPS = [
     "chaktech",
     "techland",
     "bstech",
+    "drest",
+    "lamode",
 ]
 
 

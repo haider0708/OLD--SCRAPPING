@@ -66,7 +66,7 @@ def history_sources_for_shop(shop_name: str) -> Dict[Path, str]:
 
 
 # Shops that go to the new (second) MongoDB cluster instead of the default.
-NEW_DB_SHOPS = {"tunewtec", "gamershop", "megapc", "yatoo", "affariyet", "chaktech", "techland", "bstech"}
+NEW_DB_SHOPS = {"tunewtec", "gamershop", "megapc", "yatoo", "affariyet", "chaktech", "techland", "bstech", "drest", "lamode"}
 
 
 def _shop_from_collection(collection_name: str) -> str:
@@ -241,6 +241,8 @@ class MongoDBExporter:
                 "chaktech",
                 "techland",
                 "bstech",
+                "drest",
+                "lamode",
             ]:
                 return p
         return "unknown"
@@ -539,6 +541,8 @@ def export_latest_run():
         "chaktech",
         "techland",
         "bstech",
+        "drest",
+        "lamode",
     ]
 
     # 1. Export Merged Data

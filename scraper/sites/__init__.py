@@ -54,6 +54,8 @@ AVAILABLE_SCRAPERS = {
     "chaktech": "scraper.sites.chaktech",
     "techland": "scraper.sites.techland",
     "bstech": "scraper.sites.bstech",
+    "drest": "scraper.sites.drest",
+    "lamode": "scraper.sites.lamode",
 }
 
 
