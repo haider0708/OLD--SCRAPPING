@@ -76,6 +76,16 @@ def _shop_from_collection(collection_name: str) -> str:
     return collection_name.split("_", 1)[0]
 
 
+def _is_quota_error(exc: Exception) -> bool:
+    """Detect MongoDB Atlas free-tier quota errors."""
+    msg = str(exc).lower()
+    return (
+        "over your space quota" in msg
+        or "writes are blocked" in msg
+        or "quota" in msg and "atlas" in msg
+    )
+
+
 class MongoDBExporter:
     def __init__(self):
         self.local_uri = os.getenv("MONGO_URI_LOCAL") or os.getenv("MONGO_URI_lslsl")
@@ -87,6 +97,9 @@ class MongoDBExporter:
         # clients is a list of (name, client, db_name, accepts_shop_fn)
         # accepts_shop_fn(shop) returns True if this client should handle that shop.
         self.clients = []
+        # Direct ref to the new-cluster client (used as quota-fallback).
+        self._fallback_client = None
+        self._fallback_db_name = None
 
         if MongoClient is None:
             logger.warning(
@@ -124,6 +137,7 @@ class MongoDBExporter:
                 logger.warning(f"⚠️ Could not connect to Atlas MongoDB: {e}")
 
         # Connect Atlas (new) — handles only shops in NEW_DB_SHOPS
+        # ALSO acts as quota-fallback for the primary cluster.
         if self.atlas_uri_new:
             try:
                 client = MongoClient(
@@ -138,7 +152,10 @@ class MongoDBExporter:
                     self.db_name_new,
                     lambda s: s in NEW_DB_SHOPS,
                 ))
-                logger.info(f"✅ Connected to Atlas MongoDB (new — for {sorted(NEW_DB_SHOPS)})")
+                # Save for quota-fallback use
+                self._fallback_client = client
+                self._fallback_db_name = self.db_name_new
+                logger.info(f"✅ Connected to Atlas MongoDB (new — for {sorted(NEW_DB_SHOPS)} + quota fallback)")
             except Exception as e:
                 logger.warning(f"⚠️ Could not connect to Atlas MongoDB (new): {e}")
 
@@ -218,12 +235,74 @@ class MongoDBExporter:
                 return p
         return "unknown"
 
+    def _write_to_db(self, db, collection_name: str, data, is_history: bool, is_changes: bool, now):
+        """Perform the actual write to a database. Raises on failure."""
+        from pymongo import UpdateOne
+        coll = db[collection_name]
+
+        if is_history:
+            ops = []
+            for d in data:
+                if not isinstance(d, dict):
+                    continue
+                pid = d.get("product_id")
+                if not pid:
+                    continue
+                d.setdefault("_updated_at", now)
+                ops.append(UpdateOne(
+                    {"product_id": str(pid)},
+                    {"$set": d},
+                    upsert=True,
+                ))
+            if ops:
+                coll.bulk_write(ops, ordered=False)
+            return ("upserted", len(ops))
+
+        if is_changes:
+            ops = []
+            for d in data:
+                if not isinstance(d, dict):
+                    continue
+                pid = d.get("product_id")
+                detected_at = d.get("detected_at")
+                if not pid or not detected_at:
+                    continue
+                d.setdefault("_updated_at", now)
+                ops.append(UpdateOne(
+                    {"product_id": str(pid), "detected_at": detected_at},
+                    {"$setOnInsert": d},
+                    upsert=True,
+                ))
+            if ops:
+                coll.bulk_write(ops, ordered=False)
+            return ("appended", len(ops))
+
+        # Full replace for products / details / categories / summaries.
+        coll.delete_many({})
+        if isinstance(data, list):
+            for d in data:
+                if isinstance(d, dict):
+                    d.setdefault("_updated_at", now)
+            if data:
+                coll.insert_many(data)
+            return ("exported", len(data))
+        elif isinstance(data, dict):
+            data.setdefault("_updated_at", now)
+            coll.insert_one(data)
+            return ("exported", 1)
+        return ("exported", 0)
+
     def export_collection(self, collection_name: str, data: List[Dict]):
         """
         Export documents to a collection.
         - History collections (_history_price, _history_availability): upsert by product_id,
           replacing the history array with the authoritative local version.
+        - Change collections (_products_added, _products_removed): append-only by
+          product_id + detected_at.
         - All other collections: full replace (delete all + insert all).
+
+        If the primary Atlas cluster rejects a write due to free-tier quota, we
+        automatically retry on the new (fallback) cluster so no data is lost.
         """
         if not data:
             return
@@ -238,79 +317,41 @@ class MongoDBExporter:
         )
 
         shop = _shop_from_collection(collection_name)
+        now = datetime.now()
 
         for name, client, db_name, accepts_shop in self.clients:
             if not accepts_shop(shop):
                 continue
             db = client[db_name]
-            coll = db[collection_name]
-            now = datetime.now()
-
             try:
-                if is_history:
-                    # Upsert each document by product_id so history accumulates correctly.
-                    from pymongo import UpdateOne
-                    ops = []
-                    for d in data:
-                        if not isinstance(d, dict):
-                            continue
-                        pid = d.get("product_id")
-                        if not pid:
-                            continue
-                        d.setdefault("_updated_at", now)
-                        ops.append(UpdateOne(
-                            {"product_id": str(pid)},
-                            {"$set": d},
-                            upsert=True,
-                        ))
-                    if ops:
-                        coll.bulk_write(ops, ordered=False)
-                    logger.info(
-                        f"  -> Upserted {len(ops)} items to '{collection_name}' on {name}"
-                    )
-                elif is_changes:
-                    # Append-only: insert each event keyed by product_id + detected_at.
-                    # Skip duplicates silently.
-                    from pymongo import UpdateOne
-                    ops = []
-                    for d in data:
-                        if not isinstance(d, dict):
-                            continue
-                        pid = d.get("product_id")
-                        detected_at = d.get("detected_at")
-                        if not pid or not detected_at:
-                            continue
-                        d.setdefault("_updated_at", now)
-                        ops.append(UpdateOne(
-                            {"product_id": str(pid), "detected_at": detected_at},
-                            {"$setOnInsert": d},
-                            upsert=True,
-                        ))
-                    if ops:
-                        coll.bulk_write(ops, ordered=False)
-                    logger.info(
-                        f"  -> Appended {len(ops)} items to '{collection_name}' on {name}"
-                    )
-                else:
-                    # Full replace for products / details / categories / summaries.
-                    coll.delete_many({})
-                    if isinstance(data, list):
-                        for d in data:
-                            if isinstance(d, dict):
-                                d.setdefault("_updated_at", now)
-                        if data:
-                            coll.insert_many(data)
-                    elif isinstance(data, dict):
-                        data.setdefault("_updated_at", now)
-                        coll.insert_one(data)
-                    logger.info(
-                        f"  -> Exported {len(data) if isinstance(data, list) else 1} items to '{collection_name}' on {name}"
-                    )
-
+                verb, count = self._write_to_db(db, collection_name, data, is_history, is_changes, now)
+                logger.info(f"  -> {verb.capitalize()} {count} items to '{collection_name}' on {name}")
             except Exception as e:
-                logger.error(
-                    f"  ❌ Failed to export to '{collection_name}' on {name}: {e}"
-                )
+                # If the primary Atlas cluster is out of space, fall back to the new cluster.
+                if (
+                    name == "atlas"
+                    and _is_quota_error(e)
+                    and self._fallback_client is not None
+                ):
+                    logger.warning(
+                        f"  ⚠️ Primary Atlas over quota — falling back to atlas-new for '{collection_name}'"
+                    )
+                    try:
+                        fb_db = self._fallback_client[self._fallback_db_name]
+                        verb, count = self._write_to_db(
+                            fb_db, collection_name, data, is_history, is_changes, now
+                        )
+                        logger.info(
+                            f"  -> {verb.capitalize()} {count} items to '{collection_name}' on atlas-new (fallback)"
+                        )
+                    except Exception as e2:
+                        logger.error(
+                            f"  ❌ Fallback to atlas-new also failed for '{collection_name}': {e2}"
+                        )
+                else:
+                    logger.error(
+                        f"  ❌ Failed to export to '{collection_name}' on {name}: {e}"
+                    )
 
     def _collection_for_path(self, path: Path) -> str:
         """Infer a collection name for ad hoc CLI exports."""
@@ -440,6 +481,10 @@ def export_latest_run():
         "scoop",
         "skymill",
         "wiki",
+        "bestbuytunisie",
+        "sigshop",
+        "qsnet",
+        "promouv",
         "bill",
         "techgate",
         "acspace",
