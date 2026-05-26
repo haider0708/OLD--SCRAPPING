@@ -294,7 +294,11 @@ class MongoDBExporter:
                 if isinstance(d, dict):
                     d.setdefault("_updated_at", now)
             if data:
-                coll.insert_many(data)
+                # Chunk large inserts to avoid connection timeouts on big detail
+                # collections (e.g. spacenet has 29K docs ≈ 80MB).
+                CHUNK = 500
+                for i in range(0, len(data), CHUNK):
+                    coll.insert_many(data[i:i + CHUNK], ordered=False)
             return ("exported", len(data))
         elif isinstance(data, dict):
             data.setdefault("_updated_at", now)
