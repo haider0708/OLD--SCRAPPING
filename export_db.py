@@ -79,11 +79,17 @@ def _shop_from_collection(collection_name: str) -> str:
 def _is_quota_error(exc: Exception) -> bool:
     """Detect MongoDB Atlas free-tier quota errors."""
     msg = str(exc).lower()
-    return (
+    if (
         "over your space quota" in msg
         or "writes are blocked" in msg
-        or "quota" in msg and "atlas" in msg
-    )
+        or ("quota" in msg and "atlas" in msg)
+    ):
+        return True
+    # Atlas free-tier shows code 8000 AtlasError when over quota
+    code = getattr(exc, "code", None)
+    if code == 8000 and "atlas" in msg:
+        return True
+    return False
 
 
 class MongoDBExporter:
@@ -100,6 +106,10 @@ class MongoDBExporter:
         # Direct ref to the new-cluster client (used as quota-fallback).
         self._fallback_client = None
         self._fallback_db_name = None
+        # Once primary cluster is known to be over quota, route all subsequent
+        # writes for that cluster directly to the fallback. Avoids per-write
+        # quota probing and connection-closed cascades.
+        self._primary_over_quota = False
 
         if MongoClient is None:
             logger.warning(
@@ -322,6 +332,28 @@ class MongoDBExporter:
         for name, client, db_name, accepts_shop in self.clients:
             if not accepts_shop(shop):
                 continue
+
+            # Sticky fallback: once primary Atlas is known to be over quota,
+            # skip it entirely and route directly to atlas-new.
+            if (
+                name == "atlas"
+                and self._primary_over_quota
+                and self._fallback_client is not None
+            ):
+                try:
+                    fb_db = self._fallback_client[self._fallback_db_name]
+                    verb, count = self._write_to_db(
+                        fb_db, collection_name, data, is_history, is_changes, now
+                    )
+                    logger.info(
+                        f"  -> {verb.capitalize()} {count} items to '{collection_name}' on atlas-new (quota-routed)"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"  ❌ atlas-new (quota-routed) failed for '{collection_name}': {e}"
+                    )
+                continue
+
             db = client[db_name]
             try:
                 verb, count = self._write_to_db(db, collection_name, data, is_history, is_changes, now)
@@ -333,8 +365,9 @@ class MongoDBExporter:
                     and _is_quota_error(e)
                     and self._fallback_client is not None
                 ):
+                    self._primary_over_quota = True  # all future writes go to fallback
                     logger.warning(
-                        f"  ⚠️ Primary Atlas over quota — falling back to atlas-new for '{collection_name}'"
+                        f"  ⚠️ Primary Atlas over quota — falling back to atlas-new for '{collection_name}' (and all subsequent writes this run)"
                     )
                     try:
                         fb_db = self._fallback_client[self._fallback_db_name]
