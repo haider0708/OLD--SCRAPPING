@@ -1,0 +1,50 @@
+# Parahouse.tn - PrestaShop + JMS MegaMenu, httpx
+base_url: "https://www.parahouse.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+
+selectors:
+  frontpage:
+    nav_container: "#jms-megamenu-container .jms-megamenu"
+    top_level_items: "#jms-megamenu-container .jms-megamenu > ul.nav.level0 > li.menu-item"
+    fallback_links: ".jms-megamenu li.menu-item a[href], nav a[href], footer a[href]"
+
+  category_page:
+    item_selector: "#js-product-list .product-miniature.js-product-miniature, #js-product-list .product-miniature, .product-miniature.js-product-miniature"
+    item_url: "a.product-link[href], a.product-image[href]"
+    item_name: "a.product-link, a.product-image"
+    item_id_button: "button.ajax-add-to-cart[data-id-product], [data-id-product]"
+    item_price: ".content_price .price.new, .price.new, .content_price .price, .product-price"
+    item_old_price: ".content_price .old.price, .content_price .old, .regular-price, .old-price, .product-discount .regular-price"
+    item_discount: ".product-flag.discount, .discount"
+    item_image: "img.product-img1, img"
+    item_image_attrs: ["data-full-size-image-url", "data-src", "src", "srcset"]
+    pagination_pages: ".pagination .page-list a.js-search-link, .pagination a.js-search-link"
+    pagination_next: ".pagination a.next.js-search-link, a.next.js-search-link"
+
+  product_page:
+    product_data: "#product-details[data-product]"
+    product_id: "input[name='id_product'][value], .product-actions input[name='id_product'][value]"
+    title: "h1, .h1[itemprop='name'], .product-name"
+    reference: ".product-reference span[itemprop='sku'], .product-reference span"
+    brand_image: ".product-manufacturer img[alt]"
+    brand_link: ".product-manufacturer a"
+    price: ".product-prices .current-price .price, .product-price, .product-prices .price"
+    old_price: ".product-prices .regular-price, .regular-price, .product-discount .regular-price"
+    discount: ".discount_text.discount, .product-flag.discount, .discount"
+    availability: "#product-availability"
+    quantity: ".product-quantities"
+    overview: "#product-description-short"
+    description: "#description .product-description, #description"
+    specs_key: ".product-features .data-sheet dt.name"
+    specs_value: ".product-features .data-sheet dd.value"
+    specs_rows: ".product-features tr, table.product-features tr"
+    image_main: ".product-cover img"
+    image_gallery: ".images-container img, .thumb-container img, .product-cover img"
+    breadcrumbs: ".breadcrumb a span[itemprop='name'], .breadcrumb a"

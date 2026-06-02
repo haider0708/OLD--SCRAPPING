@@ -243,6 +243,16 @@ class MongoDBExporter:
                 "bstech",
                 "drest",
                 "lamode",
+                "itechstore",
+                "ispace",
+                "psstore",
+                "tokyo_store",
+                "el_farabi",
+                "parahouse",
+                "beautystore",
+                "jmb",
+                "topbureau",
+                "benzarti-electromenager",
             ]:
                 return p
         return "unknown"
@@ -543,6 +553,16 @@ def export_latest_run():
         "bstech",
         "drest",
         "lamode",
+        "itechstore",
+        "ispace",
+        "psstore",
+        "tokyo_store",
+        "el_farabi",
+        "parahouse",
+        "beautystore",
+        "jmb",
+        "topbureau",
+        "benzarti-electromenager",
     ]
 
     # 1. Export Merged Data

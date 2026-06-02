@@ -56,6 +56,16 @@ AVAILABLE_SCRAPERS = {
     "bstech": "scraper.sites.bstech",
     "drest": "scraper.sites.drest",
     "lamode": "scraper.sites.lamode",
+    "itechstore": "scraper.sites.itechstore",
+    "ispace": "scraper.sites.ispace",
+    "psstore": "scraper.sites.psstore",
+    "tokyo_store": "scraper.sites.tokyo_store",
+    "el_farabi": "scraper.sites.el_farabi",
+    "parahouse": "scraper.sites.parahouse",
+    "beautystore": "scraper.sites.beautystore",
+    "jmb": "scraper.sites.jmb",
+    "topbureau": "scraper.sites.topbureau",
+    "benzarti-electromenager": "scraper.sites.benzarti_electromenager",
 }
 
 

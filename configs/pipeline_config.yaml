@@ -64,6 +64,26 @@ sites:
     use_tor: false
   - name: gamershop
     use_tor: false
+  - name: itechstore
+    use_tor: false
+  - name: ispace
+    use_tor: false
+  - name: psstore
+    use_tor: false
+  - name: tokyo_store
+    use_tor: false
+  - name: el_farabi
+    use_tor: false
+  - name: parahouse
+    use_tor: false
+  - name: beautystore
+    use_tor: false
+  - name: jmb
+    use_tor: false
+  - name: topbureau
+    use_tor: false
+  - name: benzarti-electromenager
+    use_tor: false
 
   # === LOCAL PC only (Cloudflare-blocked on VPS) ===
   # mytek, tunisianet, graiet, wiki, scoop, expert_gaming,

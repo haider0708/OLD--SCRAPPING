@@ -64,6 +64,16 @@ SHOPS = [
     "bstech",
     "drest",
     "lamode",
+    "itechstore",
+    "ispace",
+    "psstore",
+    "tokyo_store",
+    "el_farabi",
+    "parahouse",
+    "beautystore",
+    "jmb",
+    "topbureau",
+    "benzarti-electromenager",
 ]
 
 
