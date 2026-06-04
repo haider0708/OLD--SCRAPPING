@@ -1,0 +1,71 @@
+# Sasio.com.tn scraper configuration
+# Platform: PrestaShop storefront with server-rendered menu, listings, and details.
+
+site_name: "sasio"
+base_url: "https://sasio.com.tn/"
+
+settings:
+  max_retries: 6
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+
+headers:
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+  Accept-Language: "fr-FR,fr;q=0.9,en;q=0.8"
+  Cache-Control: "no-cache"
+  Pragma: "no-cache"
+
+seed_categories:
+  - name: "Collection"
+    url: "https://sasio.com.tn/3-sasio-collection"
+  - name: "Robe"
+    url: "https://sasio.com.tn/18-robe-sasio"
+  - name: "Nouveautes"
+    url: "https://sasio.com.tn/116-sasio-nouveautes"
+  - name: "Vestes"
+    url: "https://sasio.com.tn/23-vestes-et-manteaux"
+
+selectors:
+  frontpage:
+    nav_container: "#_desktop_top_menu"
+    menu: "#top-menu"
+    top_level_category: "#top-menu > li.category > a.dropdown-item[data-depth='0'][href]"
+    nested_category: "li.category .popover.sub-menu a.dropdown-submenu[href], #top-menu ul.top-menu[data-depth='1'] > li.category > a[href]"
+    fallback_links: "#top-menu a[href], #_desktop_top_menu a[href], header a[href], nav a[href], footer a[href], a[href]"
+
+  category_page:
+    wait_selector: "#js-product-list .product-miniature"
+    product_list: "#js-product-list"
+    item_selector: "#js-product-list .product-miniature.js-product-miniature, .product-miniature.js-product-miniature, .product-miniature"
+    item_url: "a.thumbnail.product-thumbnail[href], h3.product-title a[href], .product-title a[href], a[href$='.html']"
+    item_title: "h3.product-title a, .product-title a, h3 a, a.thumbnail.product-thumbnail"
+    item_price: ".product-price-and-shipping .price, .product-price, .price"
+    item_old_price: ".product-price-and-shipping .regular-price, .regular-price, .old-price"
+    item_discount: ".discount-percentage, .discount-amount, .product-flags .discount, .product-flag.discount"
+    item_reference: ".product-reference [itemprop='sku'], .product-reference span, .product-reference"
+    item_brand: ".product-brand a, .product-manufacturer a, .brand img[alt]"
+    item_availability: ".product-availability, .product-last-items, .product-unavailable, .highlighted-informations .product-availability"
+    item_image: "a.thumbnail.product-thumbnail img, .thumbnail-container img, img"
+    pagination_container: "nav.pagination, .pagination"
+    pagination_next: "a[rel='next'], a.next"
+    pagination_links: ".page-list a[href], a.js-search-link[href], a[href]"
+    pagination_param: "page"
+
+  product_page:
+    data_product: "#product-details[data-product]"
+    title: "h1.h1.productpage_title, h1.h1, h1[itemprop='name'], h1"
+    product_id: "input[name='id_product'][value], #product_page_product_id[value], [data-product-id]"
+    sku: ".product-reference span[itemprop='sku'], .product-reference span, [itemprop='sku']"
+    price: ".current-price-value[content], .current-price [content], .product-price[content], meta[property='product:price:amount']"
+    old_price: ".product-prices .regular-price, .regular-price, .old-price"
+    availability: "#product-availability, .product-availability, link[itemprop='availability']"
+    brand: ".product-manufacturer img[alt], .product-manufacturer a, .product-manufacturer"
+    short_description: "#product-description-short, .product-description-short"
+    description: "#description .product-description, .product-tabs .product-description, .product-description"
+    specs: ".product-features, .data-sheet"
+    specs_rows: ".product-features dl, .data-sheet dl, dl.data-sheet, table.product-features tr, table.product-attributes tr"
+    images: ".product-cover img, .product-images img, .js-thumb, img[itemprop='image']"
+    breadcrumbs: ".breadcrumb a[href]"

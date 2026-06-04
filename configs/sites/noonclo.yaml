@@ -1,0 +1,48 @@
+# NoonClo - Shopify storefront, HTTP + JSON endpoints
+base_url: "https://noonclo.com"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+  page_size: 250
+  max_pages: 50
+
+endpoints:
+  collections_api: "https://noonclo.com/collections.json?limit=250"
+  collection_products_template: "https://noonclo.com/collections/{handle}/products.json?limit={limit}&page={page}"
+  product_json_template: "https://noonclo.com/products/{handle}.json"
+
+selectors:
+  frontpage:
+    collection_links: "header a[href*='/collections/'], nav a[href*='/collections/'], footer a[href*='/collections/'], a[href*='/collections/']"
+
+  category_page:
+    item_selector: ".grid__item.grid-product, .grid-product"
+    item_id_attr: "data-product-id"
+    item_handle_attr: "data-product-handle"
+    item_url: ".grid-product__link[href], a[href*='/products/']"
+    item_name: ".grid-product__title"
+    item_variant: ".variant_title"
+    item_price: ".grid-product__price"
+    item_old_price: ".grid-product__price--original"
+    item_badges: ".grid-product__tag, .grid-product__tag--sale, .grid-product__tag--sold-out"
+    item_image: "img[data-src], img[data-original], img[data-lazy-src], img[src], img[srcset]"
+    pagination_pages: ".pagination a[href], a[href*='?page=']"
+    pagination_next: "link[rel='next'][href], a[rel='next'][href], .pagination a.next[href]"
+    pagination_param: "page"
+
+  product_page:
+    title: "h1.product-single__title, h1[itemprop='name'], h1"
+    price: ".product__price, [itemprop='price'], .price"
+    old_price: ".product__price--compare, .product__price--original, .price--compare"
+    sku: "[itemprop='sku'], .product-single__sku, .sku"
+    availability: "[itemprop='availability'], .product__inventory, .availability, .stock"
+    description: ".product-single__description, .product__description, [itemprop='description']"
+    image_gallery: ".product__main-photos img, .product-single__media img, .product__thumbs img, img[itemprop='image']"
+    variants: "select[name='id'] option"
+    jsonld: "script[type='application/ld+json']"
+    product_cache: "#rsi-cod-form-product-cache"

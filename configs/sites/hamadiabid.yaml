@@ -1,0 +1,39 @@
+site_name: "hamadiabid"
+base_url: "https://ha.com.tn/"
+api_base_url: "https://ha.com.tn/api"
+web_origin: "https://ha.com.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_size: 24
+  max_pages: 200
+
+selectors:
+  frontpage:
+    app_root: "#app"
+    rendered_category_links: "a[href^='/catalogue/'], a[href*='ha.com.tn/catalogue/']"
+
+  categories:
+    primary_endpoint: "/api/items/menu"
+    fallback_sitemap: "/sitemap.xml"
+
+  category_page:
+    synthetic_payload: "#hamadiabid-listing-data"
+    product_card: ".card"
+    product_url: ".cardInner a[href*='article'], a[href*='article']"
+    image: "img.product-image, img"
+    price: ".price, [class*='price']"
+
+  pagination:
+    method: "api_page"
+    page_param: "page"
+    page_size: 24
+
+  product_page:
+    title: "h1"
+    image: ".product-image, img"
+    price: ".price, [class*='price']"
+    stock: "[class*='stock']"

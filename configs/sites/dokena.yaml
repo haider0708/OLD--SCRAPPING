@@ -1,0 +1,38 @@
+# Dokena.tn - Custom Next.js marketplace backed by JSON APIs, no proxy needed.
+base_url: "https://www.dokena.tn/en"
+api_base_url: "https://backend.dokena.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+  page_size: 12
+  max_pages: 200
+
+endpoints:
+  categories: "/shop_category/getAllCategorys?lang=en"
+  products: "/product/getProducts"
+
+selectors:
+  frontpage:
+    category_endpoint: "/shop_category/getAllCategorys?lang=en"
+
+  category_page:
+    item_selector: "article[data-id-product]"
+    item_name: ".product-name"
+    item_url: "a.product-link"
+    item_image: "img.product-image"
+    item_price: ".product-price"
+    item_old_price: ".product-old-price"
+    item_availability: ".product-availability"
+    pagination_param: "page"
+
+  product_page:
+    title: "h1"
+    description: "section, p"
+    price: "span"
+    image_gallery: "img[src*='ShopProductImages']"
+    seller: "h3, p"

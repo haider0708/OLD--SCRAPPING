@@ -1,0 +1,57 @@
+# Lofficielshop.tn scraper configuration
+# Platform: PrestaShop with POS menu/product theme markup.
+
+site_name: "lofficielshop"
+base_url: "https://lofficielshop.tn/fr/"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+
+selectors:
+  frontpage:
+    vertical_menu: "#_desktop_vegamenu div.pos-menu-vertical > ul.menu-content > li.menu-item"
+    horizontal_menu: "#_desktop_megamenu div.pos-menu-horizontal > ul.menu-content > li.menu-item > a[href]"
+    low_category: "div.pos-sub-menu li.submenu-item > a[href]"
+    low_category_block: "div.pos-sub-menu li.submenu-item"
+    standalone_low_category: "div.pos-sub-menu a.column_title[href]"
+    subcategory: "ul.category-sub-menu > li > a[href]"
+    fallback_links: "header a[href], #_desktop_vegamenu a[href], #_desktop_megamenu a[href], footer a[href]"
+
+  category_page:
+    wait_selector: "#js-product-list article.product-miniature.js-product-miniature"
+    product_list: "#js-product-list"
+    item_selector: "#js-product-list article.product-miniature.js-product-miniature, article.product-miniature.js-product-miniature"
+    item_url: "a.thumbnail.product-thumbnail[href], .product_desc h3 a.product_name[href], h3 a[href]"
+    item_title: ".product_desc h3 a.product_name, h3 a.product_name, .product_name"
+    item_price: ".product-price-and-shipping .price, .price"
+    item_old_price: ".product-price-and-shipping .regular-price, .regular-price"
+    item_discount: ".discount-amount, .product-flag li.discount, .product-flag .discount"
+    item_reference: ".product-reference [itemprop='sku'], .product-reference span, .product-reference"
+    item_brand: ".brand-img img[alt], .product-brand img[alt], .manufacturer img[alt]"
+    item_availability: ".availability, .availability-list, .product-flag li.out_of_stock"
+    item_image: "a.thumbnail.product-thumbnail img, .img_block img, img"
+    pagination_container: "nav.pagination, .pagination"
+    pagination_next: "a.next, a[rel='next']"
+    pagination_links: "a.js-search-link[href], a[href]"
+    pagination_param: "page"
+
+  product_page:
+    data_product: "#product-details[data-product]"
+    title: "h1.h1, h1[itemprop='name'], h1"
+    product_id: "input[name='id_product'][value], #product_page_product_id[value], [data-product-id]"
+    sku: ".product-reference [itemprop='sku'], .product-reference span, [itemprop='sku']"
+    price: ".current-price-value[content], .current-price [content], .product-price [content], meta[property='product:price:amount']"
+    old_price: ".product-prices .regular-price, .regular-price"
+    availability: "#product-availability, .product-availability, .availability"
+    brand: ".product-manufacturer img[alt], .product-manufacturer a, .brand-img img[alt]"
+    short_description: "#product-description-short, .product-description-short, .product-information .product-description"
+    description: "#description .product-description, .product-tabs .product-description, .product-description"
+    specs: ".product-features, .data-sheet"
+    specs_rows: ".product-features dl, .data-sheet dl, table.product-features tr, table.product-attributes tr"
+    images: ".product-cover img, .product-images img, .js-thumb, img[itemprop='image']"
+    breadcrumbs: ".breadcrumb a[href]"

@@ -1,0 +1,47 @@
+# Electrosifi.com - custom PHP ecommerce, Playwright required
+base_url: "https://www.electrosifi.com"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 8
+  page_timeout: 60000
+  wait_after_load: 1
+
+selectors:
+  frontpage:
+    top_level_blocks: ".main-menu nav > ul > li.has-mega"
+    top_level_link: "a[href*='rayon.php?rayon=']"
+    low_level_links: ".mega-menu a[href*='rayon.php'][href*='categorie=']"
+    fallback_links: ".offcanvas__area a[href*='rayon.php'], .mean-nav a[href*='rayon.php'], header a[href*='rayon.php'], nav a[href*='rayon.php']"
+
+  category_page:
+    wait_selector: ".single-item-pd[itemtype*='Product'], [itemscope][itemtype*='Product'], .basic-pagination"
+    item_selector: ".single-item-pd[itemtype*='Product'], div.col[itemtype*='Product'], [itemscope][itemtype*='Product']"
+    item_url: ".product_name_detail a[href*='details-produit.php'], a[href*='details-produit.php'][title]"
+    item_name: ".product_name_detail a, [itemprop='name']"
+    item_id: ".love-box[data-love]"
+    item_sku: "[itemprop='sku'], .sku, img[src*='barcode'][alt]"
+    item_brand: ".filter_item_db[data-name='MarqueArticle'][data-value], [itemprop='brand'] img[alt], [itemprop='brand'] img[title]"
+    item_price: "[itemprop='price'][content], .single_price strong, .single_price"
+    item_old_price: "del"
+    item_discount: ".discount"
+    item_image: "link[itemprop='image'][href], .features-product-image img, .product-image img, img[src*='/product/']"
+    pagination_items: ".basic-pagination li.filter_item_db[data-name='page'][data-value]"
+    pagination_active: ".basic-pagination a.active"
+    result_count: ".product__filter-count, .product_count, .shop-top-left, .shop-top-result, body"
+
+  product_page:
+    wait_selector: ".product-details, .product__details-content"
+    title: ".product__details-content [itemprop='name'], meta[property='og:title'], h1"
+    product_id: ".love-box[data-love]"
+    sku: "[itemprop='sku'], .sku_wrapper .sku"
+    brand: "[itemprop='brand'] img[content], [itemprop='brand'] img[alt], [itemprop='brand'] img[title]"
+    price: "[itemprop='price'][content], .single_price strong, .single_price"
+    old_price: ".product__details-content del, .price del, del"
+    availability: ".product-stock, [itemprop='availability']"
+    description: ".features-des[itemprop='description'], meta[property='og:description'], meta[name='description']"
+    full_description: "#des .article-description"
+    specs_rows: "#aditional .product__desc-info li, .product__desc-info li"
+    image_gallery: "link[itemprop='image'][href], .product-details img[src*='/product/'], .product__details-nav-thumb img"
+    breadcrumbs: ".breadcrumb a[href*='rayon.php'], .product_info a[href*='rayon.php']"

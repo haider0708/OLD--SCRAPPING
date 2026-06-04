@@ -1,0 +1,44 @@
+# Celio.tn - Magento 2, httpx/selectolax
+base_url: "https://celio.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+  max_pagination_pages: 120
+
+selectors:
+  frontpage:
+    menu_blocks: "nav.navigation li.level0, .navigation li.level0"
+    low_blocks: "li.level1"
+    sub_links: "li.level2 > a[href], li.level3 > a[href]"
+    sitemap: "https://celio.tn/pub/sitemap.xml"
+
+  category_page:
+    item_selector: "li.product-item, .products-grid .product-item, .product-items .product-item, .item.product.product-item"
+    item_url: "a.product-item-link[href], a.product.photo.product-item-photo[href]"
+    item_name: "a.product-item-link, .product-item-name a, strong.product-item-name a"
+    item_id: ".price-box[data-product-id], [data-price-box*='product-id-'], span[id^='product-price-']"
+    item_price: "[data-price-type='finalPrice'][data-price-amount], .price-box .price"
+    item_old_price: ".old-price [data-price-amount], [data-price-type='oldPrice'], .old-price .price"
+    item_image: "img.product-image-photo, .product-item-photo img"
+    pagination_pages: ".pages a[href], .toolbar a[href], link[rel='next'][href]"
+    pagination_next: "link[rel='next'][href], .pages a.action.next[href], .pages a.c-pager_page.chevron-right[href], a[title='Suivant'][href]"
+    result_count: ".toolbar-amount"
+
+  product_page:
+    title: ".product-info-main [itemprop='name'], .product-name, meta[property='og:title']"
+    product_id: "input[name='product'][value], .product-info-main .price-box[data-product-id]"
+    reference: ".product.attribute.sku .value[itemprop='sku'], .sku .value, [itemprop='sku']"
+    price: ".product-info-main [data-price-type='finalPrice'][data-price-amount], .product-info-main .price-wrapper"
+    old_price: ".product-info-main .old-price [data-price-amount], .product-info-main [data-price-type='oldPrice'], .product-info-main .old-price .price"
+    availability: ".stock, .product-info-stock-sku, .box-tocart, button.tocart"
+    description: ".product.attribute.description .value[itemprop='description'], meta[property='og:description'], meta[name='description']"
+    full_description: ".product.attribute.description .value[itemprop='description'], .product.data.items, meta[property='og:description']"
+    specs_rows: ".additional-attributes tr, table.data.table.additional-attributes tr"
+    options_wrapper: ".product-options-wrapper, #product_addtocart_form"
+    image_gallery: ".product.media img, .gallery-placeholder img, img.fotorama__img, meta[property='og:image']"
+    breadcrumbs: ".breadcrumbs a[href]"

@@ -1,0 +1,53 @@
+# Shopingo.tn - WordPress/WooCommerce + Martfury, httpx
+base_url: "https://www.shopingo.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+  max_pagination_pages: 80
+
+selectors:
+  frontpage:
+    all_products_url: "https://www.shopingo.tn/boutique/"
+    all_products_name: "Tous les produits"
+    top_level_items: ".site-header .main-menu li.menu-item, .site-header .main-menu li, ul#menu-primary-menu li.menu-item"
+    fallback_links: ".site-header .main-menu a[href], header a[href], nav a[href], .site-footer a[href]"
+    category_tiles: ".products .product-category, .product-category"
+    product_cat_api: "https://www.shopingo.tn/wp-json/wp/v2/product_cat"
+    store_categories_api: "https://www.shopingo.tn/wp-json/wc/store/v1/products/categories"
+    category_sitemap: "https://www.shopingo.tn/product_cat-sitemap.xml"
+
+  category_page:
+    item_selector: "li.product.type-product, ul.products li.product"
+    item_url: "h2.woocommerce-loop-product__title a[href], h2 a[href], .mf-product-thumbnail a[href], a.woocommerce-loop-product__link[href]"
+    item_id: "a.add_to_cart_button[data-product_id], [data-product_id]"
+    item_sku: "a.add_to_cart_button[data-product_sku], [data-product_sku]"
+    item_price: ".price .woocommerce-Price-amount bdi, .price .woocommerce-Price-amount, .price"
+    item_current_price: "ins .woocommerce-Price-amount bdi, ins .woocommerce-Price-amount, .price ins .woocommerce-Price-amount bdi, .price ins .woocommerce-Price-amount"
+    item_old_price: "del .woocommerce-Price-amount bdi, del .woocommerce-Price-amount, .price del .woocommerce-Price-amount bdi, .price del .woocommerce-Price-amount"
+    item_discount: ".onsale.ribbon, .onsale, .discount"
+    item_image: ".mf-product-thumbnail img, a.woocommerce-loop-product__link img, img.wp-post-image, .products img"
+    item_image_attrs: ["data-large_image", "data-src", "data-lazy-src", "src", "srcset"]
+    result_count: ".woocommerce-result-count"
+    pagination_pages: "nav.woocommerce-pagination a.page-numbers[href], a.page-numbers[href]"
+    pagination_next: "a.next.page-numbers[href], nav.woocommerce-pagination a.next[href]"
+    store_products_api: "https://www.shopingo.tn/wp-json/wc/store/v1/products"
+
+  product_page:
+    title: "h1.product_title, h1.entry-title, h1"
+    product_id: "input[name='product_id'][value], form.variations_form[data-product_id], button[name='add-to-cart'][value], form.cart [name='add-to-cart'][value]"
+    sku: ".sku_wrapper .sku, span.sku"
+    price: "p.price .woocommerce-Price-amount bdi, p.price .woocommerce-Price-amount, p.price, .summary .price .woocommerce-Price-amount bdi, .summary .price .woocommerce-Price-amount"
+    current_price: "p.price ins .woocommerce-Price-amount bdi, p.price ins .woocommerce-Price-amount, .summary .price ins .woocommerce-Price-amount bdi, .summary .price ins .woocommerce-Price-amount"
+    old_price: "p.price del .woocommerce-Price-amount bdi, p.price del .woocommerce-Price-amount, .summary .price del .woocommerce-Price-amount bdi, .summary .price del .woocommerce-Price-amount"
+    availability: ".summary .stock, .entry-summary .stock, .product-image-summary .stock, form.cart .stock"
+    description: ".woocommerce-product-details__short-description, #tab-description, .woocommerce-Tabs-panel--description, .wc-tab"
+    specs_rows: "table.variations tr, table.shop_attributes tr, table.woocommerce-product-attributes tr"
+    variations_form: "form.variations_form[data-product_variations]"
+    image_gallery: "img.wp-post-image, .woocommerce-product-gallery img, .woocommerce-product-gallery__image img"
+    breadcrumbs: ".woocommerce-breadcrumb a, nav.woocommerce-breadcrumb a, .breadcrumb a, .product_meta a[href*='/categorie/']"
+    brand: ".mf-brands a, .product-brands a, .brand a"

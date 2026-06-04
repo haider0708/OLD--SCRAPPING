@@ -8,6 +8,16 @@ sites:
   # === VPS sites (no Cloudflare block) ===
   - name: technopro
     use_tor: false
+  - name: tunisiatech
+    use_tor: false
+  - name: dokena
+    use_tor: false
+  - name: noonclo
+    use_tor: false
+  - name: peaksports
+    use_tor: false
+  - name: electro_tounsi
+    use_tor: false
   - name: spacenet
     use_tor: false
   - name: jumbo
@@ -50,6 +60,14 @@ sites:
     use_tor: false
   - name: electrobennjima
     use_tor: false
+  - name: electrosifi
+    use_tor: false
+  - name: exist
+    use_tor: false
+  - name: celio
+    use_tor: false
+  - name: mabrouk
+    use_tor: false
   - name: kamounhome
     use_tor: false
   - name: agora
@@ -83,6 +101,22 @@ sites:
   - name: topbureau
     use_tor: false
   - name: benzarti-electromenager
+    use_tor: false
+  - name: bershka
+    use_tor: false
+  - name: nablielectrosat
+    use_tor: false
+  - name: twenty
+    use_tor: false
+  - name: lofficielshop
+    use_tor: false
+  - name: shopingo
+    use_tor: false
+  - name: zen
+    use_tor: false
+  - name: hamadiabid
+    use_tor: false
+  - name: sasio
     use_tor: false
 
   # === LOCAL PC only (Cloudflare-blocked on VPS) ===

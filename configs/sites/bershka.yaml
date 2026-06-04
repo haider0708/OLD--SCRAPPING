@@ -1,0 +1,22 @@
+# bershka.com/tn - Inditex SPA/API storefront, direct HTTP API
+base_url: "https://www.bershka.com/tn/en/"
+api_base_url: "https://www.bershka.com"
+store_id: 45009578
+section_id: 40259549
+language_id: -15
+locale: "en_GB"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 5
+  request_timeout: 90
+  page_timeout: 90000
+  wait_after_load: 1
+  product_chunk_size: 30
+  probe_product_limit: 8
+
+endpoints:
+  menu: "/api/storefront/1/stores/{store_id}/menu?languageId={language_id}&locale={locale}"
+  category_products: "/itxrest/3/catalog/store/{store_id}/{section_id}/category/{category_id}/product?showProducts=false&showNoStock=false&appId=1&languageId={language_id}&locale={locale}"
+  products_array: "/itxrest/3/catalog/store/{store_id}/{section_id}/productsArray?languageId={language_id}&productIds={product_ids}"

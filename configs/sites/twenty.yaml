@@ -1,0 +1,58 @@
+# Twenty.tn scraper configuration
+# Platform: PrestaShop with Iqit/Creative Elements theme markup.
+
+site_name: "twenty"
+base_url: "https://www.twenty.tn/en/"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+
+selectors:
+  frontpage:
+    nav_container: "#cbp-hrmenu"
+    main_tab: "li#cbp-hrmenu-tab-2"
+    top_level_category: "a.cbp-category-title[href]"
+    low_level_category: "ul.cbp-category-tree > li > div.cbp-category-link-w > a[href]"
+    subcategory: "ul.cbp-hrsub-level2 a[href], ul.cbp-hrsub-level3 a[href]"
+    promo_tabs: "#cbp-hrmenu > ul > li.cbp-hrmenu-tab:not(#cbp-hrmenu-tab-2) > a[href]"
+    fallback_links: "#cbp-hrmenu a[href], header a[href], nav a[href]"
+
+  category_page:
+    wait_selector: "#js-product-list article.product-miniature"
+    product_list: "#js-product-list"
+    item_selector: "#js-product-list article.product-miniature.js-product-miniature"
+    item_url: "h2.product-title a[href], .product-title a[href], a.thumbnail.product-thumbnail[href], a.product-thumbnail[href]"
+    item_title: "h2.product-title a, .product-title a"
+    item_price: ".product-price-and-shipping .product-price[content], .product-price[content], .product-price"
+    item_old_price: ".product-price-and-shipping .regular-price, .regular-price"
+    item_discount: ".product-flag.discount, .discount-percentage, .discount"
+    item_reference: ".product-reference a, .product-reference"
+    item_seller: ".product_list_shop_by a, .product_list_shop_by"
+    item_brand: ".product-brand a, .product-brand"
+    item_availability: ".product-availability"
+    item_image: "a.thumbnail.product-thumbnail img, a.product-thumbnail img, .thumbnail-container img"
+    pagination_container: "nav.pagination, .pagination"
+    pagination_next: "a.next, a[rel='next']"
+    pagination_links: "a.js-search-link[href], a[href]"
+    pagination_param: "page"
+
+  product_page:
+    data_product: "#product-details[data-product]"
+    title: "h1.h1, h1[itemprop='name'], h1"
+    product_id: "input[name='id_product'][value], #product_page_product_id[value], [data-product-id]"
+    sku: ".product-prices .product-reference span, .product-reference span, [itemprop='sku']"
+    price: ".current-price [content], .product-price[content], meta[property='product:price:amount']"
+    old_price: ".product-prices .regular-price, .regular-price"
+    availability: "#product-availability, .product-prices #product-availability, link[itemprop='availability']"
+    brand: ".product-manufacturer a, .product-manufacturer img[alt], .product-information .product-brand a"
+    short_description: "#product-description-short, .product-description-short"
+    description: ".product-tabs .product-description, .product-information .product-description, .product-description"
+    specs: ".product-features, .data-sheet"
+    specs_rows: ".product-features dl, .data-sheet dl, table.product-features tr, table.product-attributes tr"
+    images: ".product-cover img, .product-images img, .js-thumb, img[itemprop='image']"
+    breadcrumbs: ".breadcrumb a[href]"
