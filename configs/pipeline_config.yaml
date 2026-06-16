@@ -24,6 +24,8 @@ sites:
     use_tor: false
   - name: evonte
     use_tor: false
+  - name: tuni-optique
+    use_tor: false
   - name: electro_tounsi
     use_tor: false
   - name: spacenet

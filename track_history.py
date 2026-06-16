@@ -31,6 +31,7 @@ SHOPS = [
     "kieslect",
     "mibrofit",
     "evonte",
+    "tuni-optique",
     "electro_tounsi",
     "darty",
     "spacenet",

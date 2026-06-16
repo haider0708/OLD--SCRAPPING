@@ -23,6 +23,7 @@ AVAILABLE_SCRAPERS = {
     "kieslect": "scraper.sites.kieslect",
     "mibrofit": "scraper.sites.mibrofit",
     "evonte": "scraper.sites.evonte",
+    "tuni-optique": "scraper.sites.tuni_optique",
     "electro_tounsi": "scraper.sites.electro_tounsi",
     "darty": "scraper.sites.darty",
     "spacenet": "scraper.sites.spacenet",

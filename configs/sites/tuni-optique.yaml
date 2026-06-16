@@ -1,0 +1,53 @@
+# Tuni Optique - Custom Tiktak/CloudTiktak storefront with public JSON APIs
+base_url: "https://tuni-optique.com"
+api_base_url: "https://api.tiktakpro.com/api/v1"
+media_base_url: "https://cloudtiktak.com"
+company_id: "MLwZmXG"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+  page_size: 12
+  max_pagination_pages: 20
+
+endpoints:
+  categories: "https://api.tiktakpro.com/api/v1/categories-read/?company={company_id}&active=true&page={page}"
+  products: "https://api.tiktakpro.com/api/v1/products-read/?company={company_id}&page={page}&ordering=&size={page_size}&no_parent=true&active=true&show-children=false&has_category={category_id}"
+  product_detail: "https://api.tiktakpro.com/api/v1/products-read/{product_id}/?company={company_id}"
+  robots_url: "https://tuni-optique.com/robots.txt"
+  sitemap_url: "https://tuni-optique.com/sitemap.xml"
+
+headers:
+  Accept: "application/json, text/html, */*"
+  Referer: "https://tuni-optique.com/"
+
+selectors:
+  frontpage:
+    category_links: "header a[href*='/product-list/'], nav a[href*='/product-list/'], footer a[href*='/product-list/'], a[href*='/product-list/']"
+
+  category_page:
+    item_selector: "article.tuni-optique-product-card"
+    item_id_attr: "data-id-product"
+    item_url: "a.product-link[href]"
+    item_name: ".product-name"
+    item_price: ".product-price"
+    item_old_price: ".product-old-price"
+    item_discount: ".product-discount"
+    item_image: "img.product-image"
+    item_availability: ".product-availability"
+    listing_data: "#tuni-optique-listing-data"
+    pagination_param: "page"
+
+  product_page:
+    jsonld: "script[type='application/ld+json']"
+    embedded_product: "script"
+    title: "h1, meta[property='og:title']"
+    price: ".price, .after-price, meta[itemprop='price']"
+    old_price: ".before-price, .regular-price"
+    availability: ".customStockContainer, .stockCounterValue, .out-of-stock-label"
+    image_gallery: "img[src*='cloudtiktak.com/media/static/media'], img[data-src*='cloudtiktak.com/media/static/media']"
+    breadcrumbs: "a[href*='/product-list/']"
