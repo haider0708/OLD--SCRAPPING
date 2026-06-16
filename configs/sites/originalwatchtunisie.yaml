@@ -1,0 +1,39 @@
+# Original Watch Tunisie - custom PHP ecommerce, httpx/selectolax
+base_url: "https://www.originalwatchtunisie.com"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+  max_pagination_pages: 20
+
+selectors:
+  frontpage:
+    menu_links: ".main-menu a[href*='products.php?cat='], .navbar a[href*='products.php?cat='], .offcanvas a[href*='products.php?cat='], header a[href*='products.php?cat=']"
+
+  category_page:
+    item_selector: "article.product-card"
+    item_url: "article.product-card[data-href]"
+    item_name: ".product-title"
+    item_brand: ".pc-brandLogo[alt], .pc-brandLink[title]"
+    item_price: ".price .current"
+    item_old_price: ".price .old"
+    item_discount: ".promo-tag"
+    item_image: ".image-wrap img[src]"
+    pagination_pages: ".pagination a[href*='page='], .pagination span"
+    pagination_next: ".pagination a[href*='page=']:not(.disabled)"
+    result_count: "body"
+
+  product_page:
+    title: "section.meta h1, h1, meta[property='og:title']"
+    brand: "section.meta .brand-logo[alt], .brand-logo[alt]"
+    price: "section.meta .price-now, .price-now, .price"
+    old_price: "section.meta .price-old, .price-old"
+    discount: "section.meta .promo-chip, .promo-chip"
+    availability: "section.meta .avail-badge, .avail-badge"
+    description_blocks: "details.spec"
+    image_gallery: "section.gallery .gallery-main img[src], section.gallery .thumb[data-src], section.gallery img[src], meta[property='og:image']"
+    breadcrumbs: ".breadcrumb a[href*='products.php'], [class*='breadcrumb'] a[href*='products.php']"

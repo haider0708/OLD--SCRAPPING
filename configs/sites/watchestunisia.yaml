@@ -1,0 +1,57 @@
+# WatchesTunisia - PrestaShop, HTTP/selectolax
+base_url: "https://www.watchestunisia.com"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+
+selectors:
+  frontpage:
+    nav_links: "header a[href], .tv-menu-horizontal a[href], .tvcmsdesktop-top-header-box a[href], footer a[href]"
+    robots_url: "https://www.watchestunisia.com/robots.txt"
+    sitemap_index_url: "https://www.watchestunisia.com/1_index_sitemap.xml"
+    sitemap_url: "https://www.watchestunisia.com/1_fr_0_sitemap.xml"
+    seed_category_urls:
+      - "https://www.watchestunisia.com/14-montre-homme"
+    category_tree: ".block-categories .category-sub-menu, .category-sub-menu"
+
+  category_page:
+    product_list: "#js-product-list"
+    item_selector: "#js-product-list .product-miniature.js-product-miniature, #js-product-list article.product-miniature"
+    item_id_attr: "data-id-product"
+    item_attribute_id_attr: "data-id-product-attribute"
+    item_name: ".product-title a, .tvproduct-name a"
+    item_url: "a.thumbnail.product-thumbnail[href], .product-title a[href], .tvproduct-name a[href]"
+    item_image: ".tvproduct-image img, .thumbnail-container img, img[itemprop='image']"
+    item_image_attrs: ["data-original", "data-src", "src"]
+    item_price: ".price"
+    item_old_price: ".regular-price"
+    item_discount: ".discount-percentage, .product-flag.discount, .discount"
+    item_availability: ".product-availability, [itemprop='availability']"
+    pagination_next: "a.next.js-search-link, a[rel='next'], link[rel='next']"
+    pagination_links: ".pagination a.js-search-link, .page-list a, .pagination a, link[rel='next'], link[rel='prev']"
+    pagination_param: "page"
+
+  product_page:
+    product_json: "#product-details[data-product], .js-product-details[data-product]"
+    title: "h1[itemprop='name'], h1.h1, h1"
+    sku: ".product-reference span[itemprop='sku'], .product-reference span"
+    brand: ".product-manufacturer img, .product-manufacturer a"
+    brand_attr: "alt"
+    price: ".current-price .price, .product-prices .price, span[itemprop='price']"
+    price_attr: "content"
+    old_price: ".product-prices .regular-price, .product-discount .regular-price, .regular-price"
+    discount: ".discount-percentage, .discount"
+    availability: "#product-availability, .js-product-availability, .product-availability"
+    short_description: "#product-description-short, div[id^='product-description-short']"
+    description: ".tabs .product-description, .product-description.cms-description, .product-description"
+    specs_container: ".product-features dl.data-sheet, .product-features"
+    specs_key: "dt.name, dt"
+    specs_value: "dd.value, dd"
+    image_main: ".product-cover img, .images-container .product-cover img"
+    image_thumbnails: ".product-images img, .thumb-container img, img.thumb.js-thumb"
+    breadcrumbs: "nav.breadcrumb a, .breadcrumb a"

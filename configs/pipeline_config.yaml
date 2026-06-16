@@ -16,6 +16,14 @@ sites:
     use_tor: false
   - name: peaksports
     use_tor: false
+  - name: watchestunisia
+    use_tor: false
+  - name: kieslect
+    use_tor: false
+  - name: mibrofit
+    use_tor: false
+  - name: evonte
+    use_tor: false
   - name: electro_tounsi
     use_tor: false
   - name: spacenet
@@ -68,6 +76,14 @@ sites:
     use_tor: false
   - name: mabrouk
     use_tor: false
+  - name: praga
+    use_tor: false
+  - name: originalwatchtunisie
+    use_tor: false
+  - name: castratime
+    use_tor: false
+  - name: opticboxedge
+    use_tor: false
   - name: kamounhome
     use_tor: false
   - name: agora
@@ -117,6 +133,14 @@ sites:
   - name: hamadiabid
     use_tor: false
   - name: sasio
+    use_tor: false
+  - name: mykenza
+    use_tor: false
+  - name: techno-watch
+    use_tor: false
+  - name: kotonhouse
+    use_tor: false
+  - name: infinity
     use_tor: false
 
   # === LOCAL PC only (Cloudflare-blocked on VPS) ===

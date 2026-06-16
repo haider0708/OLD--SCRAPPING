@@ -1,0 +1,50 @@
+# Evonte - Custom IG60/Next.js storefront, HTTP + Next data payloads
+base_url: "https://evonte.shop"
+cdn_base_url: "https://cdn.ig60.com"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+  page_size: 50
+  max_pages: 50
+
+endpoints:
+  listing_path: "/products"
+  next_products_template: "https://evonte.shop/_next/data/{build_id}/products.json?page={page}"
+  next_product_template: "https://evonte.shop/_next/data/{build_id}/products/{slug}.json"
+  robots_url: "https://evonte.shop/robots.txt"
+  sitemap_url: "https://evonte.shop/sitemap.xml"
+
+selectors:
+  frontpage:
+    next_data: "script#__NEXT_DATA__"
+    menu_links: "header a[href], nav a[href], footer a[href], a[href]"
+
+  category_page:
+    item_selector: "article.evonte-product-card"
+    item_id_attr: "data-id-product"
+    item_slug_attr: "data-product-slug"
+    item_url: "a.product-link[href]"
+    item_name: ".product-name"
+    item_price: ".product-price"
+    item_old_price: ".product-old-price"
+    item_discount: ".product-discount"
+    item_image: "img.product-image"
+    item_availability: ".product-availability"
+    next_data: "script#__NEXT_DATA__"
+    listing_data: "#evonte-listing-data"
+    pagination_param: "page"
+
+  product_page:
+    next_data: "script#__NEXT_DATA__"
+    title: "h1.product-title, h1"
+    price: ".after-price, .price"
+    old_price: ".before-price"
+    availability: ".customStockContainer, .stockCounterValue"
+    image_gallery: "img[src*='products']"
+    breadcrumbs: ".productpage a[href], a[href*='/products']"
+    jsonld: "script[type='application/ld+json']"

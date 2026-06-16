@@ -1,0 +1,62 @@
+# MyKenza.tn scraper configuration
+# Platform: WordPress/WooCommerce, server-rendered HTML.
+
+site_name: "mykenza"
+base_url: "https://www.mykenza.tn/"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+  max_pagination_pages: 80
+
+headers:
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+  Accept-Language: "fr-FR,fr;q=0.9,en;q=0.8"
+
+fixed_categories:
+  - name: "Montres"
+    url: "https://www.mykenza.tn/categorie-produit/bijoux-montres/"
+    category_id: "271"
+  - name: "Lunettes"
+    url: "https://www.mykenza.tn/categorie-produit/lunettes-cadres/"
+    category_id: "277"
+
+selectors:
+  frontpage:
+    category_links: "header a[href*='/categorie-produit/'], nav a[href*='/categorie-produit/'], .menu a[href*='/categorie-produit/']"
+    fallback_links: "a[href*='/categorie-produit/bijoux-montres/'], a[href*='/categorie-produit/lunettes-cadres/']"
+    store_categories_api: "https://www.mykenza.tn/wp-json/wc/store/v1/products/categories"
+
+  category_page:
+    item_selector: "ul.products li.product, li.product.type-product, .products .product"
+    item_url: "a.woocommerce-LoopProduct-link[href*='/produit/'], a.woocommerce-loop-product__link[href*='/produit/'], a[href*='/produit/']"
+    item_title: ".woocommerce-loop-product__title, h2.woocommerce-loop-product__title, h3.woocommerce-loop-product__title, h2, h3"
+    item_id: "button.loop_add_to_cart_express[data-product_id], button[data-product_id], [data-product_id], [data-product-id]"
+    item_price: ".price"
+    item_current_price: ".price ins .woocommerce-Price-amount, .price ins, ins .woocommerce-Price-amount, ins"
+    item_old_price: ".price del .woocommerce-Price-amount, .price del, del .woocommerce-Price-amount, del"
+    item_discount: ".MK-badges-product-onsale .percentage, .MK-badges-product-onsale-badge, .onsale, .discount"
+    item_brand: ".product-brand img[alt], .product-brand a, .product-brand"
+    item_image: ".product-thumbnail img, img.wp-post-image, img.attachment-woocommerce_thumbnail, img"
+    item_image_attrs: ["data-large_image", "data-src", "data-lazy-src", "src", "srcset"]
+    pagination_pages: "nav.woocommerce-pagination a.page-numbers[href], .woocommerce-pagination a.page-numbers[href], a.page-numbers[href]"
+    pagination_current: "nav.woocommerce-pagination .page-numbers.current, .woocommerce-pagination .page-numbers.current, .page-numbers.current"
+    pagination_next: "nav.woocommerce-pagination a.next.page-numbers[href], .woocommerce-pagination a.next.page-numbers[href], a.next.page-numbers[href]"
+
+  product_page:
+    title: "h1.product_title.entry-title, h1.product_title, h1.entry-title, h1"
+    product_id: "button[name='add-to-cart'][value], form.cart [name='add-to-cart'][value], input[name='product_id'][value], [data-product_id], [data-product-id]"
+    sku: ".sku_wrapper .sku, span.sku, [itemprop='sku']"
+    price: ".summary .price .woocommerce-Price-amount, p.price .woocommerce-Price-amount, .summary .price, p.price"
+    current_price: ".summary .price ins .woocommerce-Price-amount, .summary .price ins, p.price ins .woocommerce-Price-amount, p.price ins"
+    old_price: ".summary .price del .woocommerce-Price-amount, .summary .price del, p.price del .woocommerce-Price-amount, p.price del"
+    availability: ".summary .stock, p.stock, .stock"
+    description: "#tab-description, .woocommerce-Tabs-panel--description, .woocommerce-product-details__short-description"
+    specs_rows: "table.shop_attributes tr, table.woocommerce-product-attributes tr"
+    image_gallery: ".woocommerce-product-gallery__image img, .woocommerce-product-gallery img, img.wp-post-image, meta[property='og:image']"
+    breadcrumbs: ".woocommerce-breadcrumb a, nav.woocommerce-breadcrumb a, .posted_in a[href*='/categorie-produit/']"
+    brand: ".product-brand img[alt], .product-brands a, .brand a"

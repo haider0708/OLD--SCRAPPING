@@ -1,0 +1,36 @@
+# CastraTime - Boutiki Angular storefront with public JSON APIs
+base_url: "https://www.castratime.online"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+  max_pagination_pages: 1
+
+api:
+  store_slug: "castra-time"
+  products_endpoint: "https://www.castratime.online/api/v1/public/stores/castra-time/products?"
+  detail_endpoint_template: "https://www.castratime.online/api/v1/public/stores/castra-time/products/{slug}/detail"
+
+headers:
+  Accept: "application/json, text/plain, */*"
+  Referer: "https://www.castratime.online/"
+
+selectors:
+  category_page:
+    # Rendered Angular fallback only; primary listings use the public JSON API.
+    item_selector: "a[href^='/p/'], a[href*='/p/']"
+    item_url: "a[href^='/p/'], a[href*='/p/']"
+    item_name: "img[alt]"
+    item_price_text: "a[href^='/p/'], a[href*='/p/']"
+    item_image: "img[alt][src*='/api/public/uploads/']"
+
+  product_page:
+    # Rendered Angular fallback only; primary details use the public JSON API.
+    title: "h1, meta[property='og:title']"
+    price_text: "body"
+    description: "body"
+    images: "img[src*='/api/public/uploads/'], meta[property='og:image']"
