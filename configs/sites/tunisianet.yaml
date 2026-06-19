@@ -1,0 +1,91 @@
+# ============================================================
+# TunisiaNet.com.tn Scraper Configuration
+# ============================================================
+# Site: https://www.tunisianet.com.tn (Tunisian E-commerce)
+# Platform: PrestaShop-based
+
+site_name: "tunisianet"
+base_url: "https://www.tunisianet.com.tn"
+
+# === SCRAPER SETTINGS ===
+settings:
+  max_retries: 3
+  retry_delay: 5
+  max_consecutive_failures: 10
+  page_timeout: 60000
+  wait_after_load: 3
+
+# === SELECTORS ===
+selectors:
+  # --- FRONTPAGE (Category Hierarchy) ---
+  frontpage:
+    # Top-level categories (9 total)
+    top_level_blocks: "li.level-1.parent"
+    top_level_link: "a.main, a"
+    
+    # Low-level categories (headers within dropdown)
+    low_level_blocks: ".menu-item.item-header"
+    low_level_link: "a"
+    
+    # Subcategories (lines within dropdown)
+    subcategory_blocks: ".menu-item.item-line"
+    subcategory_link: "a"
+
+  # --- CATEGORY PAGE (Product Listings) ---
+  category_page:
+    wait_selector: ".item-product"
+    
+    # Product item container
+    item_selector: ".item-product"
+    
+    # Within each item:
+    product_id_selector: "article[data-id-product]"
+    product_id_attr: "data-id-product"
+    product_link: "a.product-thumbnail"
+    product_title: ".product-title a"
+    product_price: ".price"
+    product_image: ".product-thumbnail img"
+    
+    # Pagination
+    pagination_next: "a.next"
+    pagination_links: ".pagination a"
+    pagination_param: "page"  # ?page=2
+
+  # --- PRODUCT PAGE (Detail Scraping) ---
+  product_page:
+    # Title
+    title: "h1.h1, h1[itemprop='name']"
+    
+    # SKU/Reference
+    sku: ".product-reference span"
+    
+    # Brand
+    brand_img: ".product-manufacturer img"
+    
+    # Pricing
+    price: "[itemprop='price']"
+    price_attr: "content"
+    old_price: ".regular-price"
+    discount: ".discount-percentage"
+    
+    # Stock
+    stock: "#product-availability"
+    
+    # Description
+    description: "#description .product-description"
+    
+    # Specifications (data-sheet)
+    specs_container: ".product-features, .data-sheet"
+    specs_name: "dt.name"
+    specs_value: "dd.value"
+    
+    # Images
+    main_image: ".product-cover img"
+    gallery_images: ".product-images img, .images-container img"
+
+# === NOTES ===
+# - PrestaShop platform
+# - 24 products per page typical
+# - Pagination uses ?page=N query parameter
+# - Product ID is on article element inside .item-product
+# - Product pages load via JS, need 3-5s wait

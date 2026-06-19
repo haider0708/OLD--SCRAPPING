@@ -1,0 +1,34 @@
+# Kastelo.com.tn - NetAdvisor custom platform, httpx (no Cloudflare)
+base_url: "https://kastelo.com.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 1
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 0
+
+selectors:
+  frontpage:
+    category_links: "a[href*='/filter/']"
+
+  category_page:
+    # All products loaded in one page (load-more, not pagination)
+    item_selector: "a[href*='/produit/']"
+    item_name: "h4, h3, h2, .product-name"
+    item_image: "img, img[class*='Image-HasTech']"
+    item_image_attrs: ["src", "data-src"]
+    item_price: ".price, [class*='price']"
+    item_old_price: "del, s, .old-price"
+
+  product_page:
+    title: "h1, h2.product-title, h4.product-name"
+    price: ".price, [class*='price']"
+    old_price: "del, s, .old-price"
+    sku: ".sku, .reference, [class*='reference']"
+    availability: ".availability, .stock, [class*='stock']"
+    description: ".description, .product-description"
+    image_main: "img[class*='Image-HasTech'], img[src*='fileskastelo']"
+    image_thumbnails: ".product-images img, .gallery img"
+    sizes: "li[onclick*='javascript:void'], .size-option li"

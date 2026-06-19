@@ -1,0 +1,10 @@
+# Techland.tn - Next.js custom (RSC). Categories: /categories/{slug}, pagination: ?page=N
+base_url: "https://techland.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1

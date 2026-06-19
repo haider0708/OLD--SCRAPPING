@@ -1,0 +1,10 @@
+# eleganza.tn - Custom Tijarati, Cloudflare, Playwright
+base_url: "https://eleganza.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 60
+  page_timeout: 60000
+  wait_after_load: 2.5

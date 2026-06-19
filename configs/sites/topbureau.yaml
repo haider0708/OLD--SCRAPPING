@@ -1,0 +1,35 @@
+# TopBureau - Fast scraper
+# Platform: OpenCart-style storefront, server-rendered HTML
+base_url: "https://www.topbureau.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+
+selectors:
+  frontpage:
+    vertical_menu: ".container-megamenu.vertical ul.megamenu"
+    horizontal_menu: ".container-megamenu.horizontal ul.megamenu"
+    category_link: "a[href*='route=product/category'][href*='path=']"
+
+  category_page:
+    item_selector: ".product-grid .product"
+    item_url: ".name a[href*='route=product/product']"
+    item_name: ".name a[href*='route=product/product']"
+    item_image: ".image img, img"
+    item_image_attrs: ["data-echo", "data-src", "data-original", "data-zoom-image", "src"]
+    item_price: ".price-new"
+    item_old_price: ".price-old"
+    pagination: "ul.pagination, .pagination"
+
+  product_page:
+    title: "#content [itemtype='http://schema.org/Product'] .product-name, .product-info .product-name, h1"
+    product_id: "input[name='product_id'][value]"
+    summary: ".product-center .description"
+    price: ".product-center .price .price-new, .product-center .price [itemprop='price']"
+    old_price: ".product-center .price .price-old"
+    description: "#tab-description"
+    specifications: ".product-specifications tr"
+    images: ".popup-gallery img, .popup-gallery a, #image"

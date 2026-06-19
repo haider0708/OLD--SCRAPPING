@@ -1,0 +1,56 @@
+# Wiki - Hybrid (Playwright categories + httpx listings/details)
+# Platform: WordPress + Bricks Builder + WooCommerce + WP Grid Builder
+base_url: "https://wiki.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 15000
+  wait_after_load: 2
+
+selectors:
+  frontpage:
+    wait_selector: "nav.desktop-nav, nav.brxe-nav-nested, nav[class*='nav']"
+    nav_container: "nav.desktop-nav ul.categories-menu"
+    top_level_blocks: "nav.desktop-nav ul.categories-menu > li.drop-down-category"
+    top_level_name: "div.brx-submenu-toggle > span"
+    low_level_items: "ul.drop-down-subcategories > li.menu-item"
+    low_level_heading: "h6.subcategory-heading"
+    low_level_link: "h6.subcategory-heading a"
+    subcategory_items: "div.subcategories-div a"
+
+  category_page:
+    item_selector: "div.product-card--grid"
+    item_id_selector: "a.add_to_cart_button"
+    item_id_attr: "data-product_id"
+    item_name: "h3.product-card__title a"
+    item_url: "h3.product-card__title a"
+    item_image: "figure.product-card__image img"
+    item_image_attrs: ["src", "data-src"]
+    item_price: ".product-card__price .woocommerce-Price-amount bdi"
+    item_old_price: ".product-card__price del .woocommerce-Price-amount bdi"
+    item_brand: ".product-card__brand-logo img"
+    item_brand_attr: "alt"
+    item_sku: ".product-card__sku .sku"
+    pagination_next: "a.next.page-numbers, li.wpgb-page-next a"
+    pagination_param: "page"
+
+  product_page:
+    title: "h1.brxe-product-title, .product-top__title"
+    sku: ".product_meta .sku"
+    brand: ".product-card__logo-wrapper--big .product-card__brand-logo img"
+    brand_attr: "alt"
+    price: ".product-card__price-new .price > .woocommerce-Price-amount bdi, p.price .woocommerce-Price-amount bdi, .price .woocommerce-Price-amount bdi"
+    price_sale: ".product-card__price-new .price ins .woocommerce-Price-amount bdi"
+    price_original: ".product-card__price-new .price del .woocommerce-Price-amount bdi"
+    availability_badge: ".stock-status-badge[data-stock-status]"
+    availability_woo: ".stock.in-stock, .stock.available-on-backorder"
+    description: ".woocommerce-product-details__short-description"
+    full_description: ".woocommerce-tabs .panel, #tab-description"
+    specs_container: "table.shop_attributes"
+    specs_key: "th.woocommerce-product-attributes-item__label"
+    specs_value: "td.woocommerce-product-attributes-item__value"
+    image_main: ".woocommerce-product-gallery__image img.wp-post-image"
+    image_gallery: ".woocommerce-product-gallery__image a"

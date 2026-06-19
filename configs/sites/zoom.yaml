@@ -1,0 +1,59 @@
+site_name: "zoom"
+base_url: "https://zoom.com.tn"
+
+selectors:
+  categories:
+    desktop:
+      container: "li.mm_tabs_li.mm_tabs_has_content"
+
+      main_category:
+        selector: ".mm_tab_toggle_title a"
+        type: link
+        fields:
+          name: text
+          url: href
+
+      blocks:
+        container: ".ets_mm_block.mm_block_type_category"
+
+        category:
+          selector: "span.h4 a"
+          type: link
+          fields:
+            name: text
+            url: href
+
+        subcategories:
+          container: ".ets_mm_categories li"
+
+          level_2:
+            selector: ":scope > a"
+            type: link
+            fields:
+              name: text
+              url: href
+
+          level_3:
+            selector: "ul li a"
+            type: link
+            fields:
+              name: text
+              url: href
+
+  category_page:
+    item_selector: ".product-container, .product-item"
+    pagination:
+      container: ".pagination, .pager"
+      next_selector: ".next, .pagination-next"
+      max_pages: 20
+
+  product_details:
+    title: "h1, .product-name, .page-title"
+    product_id: ".product-id, input[name='id_product']"
+    price: ".current-price, .price"
+    old_price: ".old-price, .regular-price"
+    availability: ".product-availability, .stock-status"
+    description: ".product-description, #description"
+    specifications: ".product-specs tr, .specifications tr"
+    images: ".product-images img, .gallery img"
+    brand: ".product-brand, .brand"

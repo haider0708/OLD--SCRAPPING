@@ -1,0 +1,46 @@
+# Pharmashop - SSR (httpx + selectolax)
+# Platform: PrestaShop 1.7 + Leo Theme / ApMegamenu
+# NOTE: Single worker (rate-limited)
+base_url: "https://pharma-shop.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+
+selectors:
+  frontpage:
+    nav_container: "nav.leo-megamenu ul.nav.navbar-nav.megamenu.horizontal"
+    top_level_blocks: "ul.megamenu.horizontal > li.nav-item.parent.dropdown"
+    top_level_link: "a.nav-link.dropdown-toggle"
+    top_level_name: "a.nav-link span.menu-title"
+    low_level_items: "div.dropdown-menu-inner ul.row > li.col-md-4 > a"
+    subcategory_items: "ul.row > li.col-md-4 > ul > li > a"
+
+  category_page:
+    item_selector: "article.product-miniature.js-product-miniature"
+    item_id_attr: "data-id-product"
+    item_name: "h2.h3.product-title[itemprop='name'] a"
+    item_url: "h2.product-title a"
+    item_image: "a.thumbnail.product-thumbnail img"
+    item_image_attrs: ["src", "data-src", "data-full-size-image-url"]
+    item_price: "span.price[aria-label='Prix']"
+    item_price_schema: "meta[itemprop='price'][content]"
+    item_old_price: "span.regular-price[aria-label='Prix de base']"
+    item_brand: "div.text-center.txt-marque a"
+    pagination_next: "a.next.js-search-link[rel='next']"
+    pagination_param: "page"
+
+  product_page:
+    json_data: "div.tab-pane#product-details[data-product]"
+    json_data_attr: "data-product"
+    title: "h1.h1[itemprop='name']"
+    price: "div.current-price span[itemprop='price']"
+    price_content_attr: "content"
+    old_price: "div.product-discount span.regular-price"
+    brand: "div.product-manufacturer img.manufacturer-logo"
+    brand_attr: "alt"
+    description: "div.product-description[itemprop='description']"
+    image_main: "div.product-cover img.js-qv-product-cover"
+    image_thumbnails: "ul.product-images.js-qv-product-images img.thumb"

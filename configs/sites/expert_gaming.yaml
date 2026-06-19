@@ -1,0 +1,48 @@
+# Expert Gaming - Hybrid (Playwright categories + httpx listings/details)
+# Platform: WooCommerce + Elementor + YITH
+base_url: "https://expert-gaming.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 15000
+  wait_after_load: 2
+
+selectors:
+  frontpage:
+    wait_selector: "ul#menu-notre-boutique > li.menu-item > a"
+    top_level_blocks: "ul#menu-notre-boutique > li.menu-item"
+    top_level_link: "a"
+    top_level_name: "a > span.menu-label"
+    sub_menu: "ul.sub-menu"
+    low_level_link: "h3.heading-title a, div.elementor-heading-title a"
+
+  category_page:
+    item_selector: "section.product"
+    item_id_attr: "data-product_id"
+    item_name: "h3.heading-title.product-name a"
+    item_url: "h3.heading-title.product-name a"
+    item_image: "div.thumbnail-wrapper figure img.wp-post-image"
+    item_image_attrs: ["src"]
+    item_price: "span.price span.woocommerce-Price-amount bdi"
+    item_old_price: "span.price del span.woocommerce-Price-amount bdi"
+    pagination_next: "ul.page-numbers a.next.page-numbers"
+    pagination_pages: "ul.page-numbers a.page-numbers"
+    pagination_param: "page"
+    pagination_path: "/page/{n}/"
+
+  product_page:
+    title: "h1.product_title.entry-title"
+    price: "p.price span.woocommerce-Price-amount bdi"
+    old_price: "p.price del span.woocommerce-Price-amount bdi"
+    sku: "div.sku-wrapper span.sku"
+    brand: "div.product-brands a"
+    availability: "div.availability.stock span.availability-text"
+    description: "div.woocommerce-product-details__short-description"
+    specs_container: "table.woocommerce-product-attributes.shop_attributes"
+    specs_key: "th.woocommerce-product-attributes-item__label"
+    specs_value: "td.woocommerce-product-attributes-item__value"
+    image_main: "div.woocommerce-product-gallery__image img"
+    image_gallery_attr: "data-thumb"

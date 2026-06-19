@@ -1,0 +1,10 @@
+﻿# zanimo.tn - Next.js (pure JS shell), Playwright
+base_url: "https://zanimo.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 3
+  max_consecutive_failures: 10
+  request_timeout: 60
+  page_timeout: 60000
+  wait_after_load: 2

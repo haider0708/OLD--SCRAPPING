@@ -1,0 +1,40 @@
+# Mageekstore.tn - Wix (fully JS-rendered), no Cloudflare, full Playwright
+base_url: "https://www.mageekstore.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 60
+  page_timeout: 60000
+  wait_after_load: 8
+
+selectors:
+  frontpage:
+    wait_selector: "[data-testid='richTextElement'], a[href*='/acheter'], [data-mesh-id]"
+    nav_container: "nav, [data-testid='siteHeader'], header"
+    top_level_blocks: "nav li, [data-testid='menuItem']"
+    top_level_link: "a"
+    sub_items: "nav li ul li a, [data-testid='dropdownMenu'] a"
+
+  category_page:
+    item_selector: "[data-testid='product-item'], [data-hook='product-item'], li[data-hook='product-list-grid-item']"
+    item_id_attr: "data-product-id"
+    item_name: "[data-hook='product-item-name'], [data-testid='product-title'], h3"
+    item_url: "a[href*='/product-page/'], a[data-hook='product-item-container']"
+    item_image: "img[data-hook='product-item-image'], img"
+    item_image_attrs: ["src", "data-src"]
+    item_price: "[data-hook='product-item-price-to-pay'], [data-hook='price-range-from'], [data-testid='price']"
+    item_old_price: "[data-hook='product-item-price-before-discount']"
+    pagination_next: "[data-hook='load-more-button'], button[aria-label='Next'], a[aria-label='Next page']"
+    pagination_param: "page"
+
+  product_page:
+    title: "[data-hook='product-title'], h1[data-testid='product-title'], h1"
+    price: "[data-hook='formatted-primary-price'], [data-hook='product-price'], [data-testid='price']"
+    old_price: "[data-hook='product-price-before-discount']"
+    sku: "[data-hook='sku'], [data-testid='sku']"
+    availability: "[data-hook='inventory-wrapper'], [data-testid='inventory']"
+    description: "[data-hook='description'], [data-testid='product-description']"
+    image_main: "[data-hook='product-images-layout'] img, [data-testid='product-image'] img"
+    image_thumbnails: "[data-hook='media-list'] img"

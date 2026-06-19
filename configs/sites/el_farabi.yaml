@@ -1,0 +1,44 @@
+# Para El Farabi - WordPress/WooCommerce, httpx
+base_url: "https://www.paraelfarabi.com"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+
+selectors:
+  frontpage:
+    nav_links: "nav a[href*='/categorie-produit/']"
+    fallback_links: "a[href*='/categorie-produit/']"
+    category_api: "https://www.paraelfarabi.com/wp-json/wp/v2/product_cat"
+
+  category_page:
+    item_selector: "li.product.type-product, .products .product.type-product"
+    item_id: "a.add_to_cart_button[data-product_id], a.button[data-product_id], [data-product_id]"
+    item_sku: "a.add_to_cart_button[data-product_sku], a.button[data-product_sku], [data-product_sku]"
+    item_url: "a.woocommerce-LoopProduct-link[href*='/produit/'], a.woocommerce-loop-product__link[href*='/produit/']"
+    item_name: "h2.woocommerce-loop-product__title, .woocommerce-loop-product__title"
+    item_price: ".price .woocommerce-Price-amount bdi, .woocommerce-Price-amount bdi, bdi"
+    item_current_price: "ins .woocommerce-Price-amount bdi, .price ins .woocommerce-Price-amount bdi"
+    item_old_price: "del .woocommerce-Price-amount bdi, .price del .woocommerce-Price-amount bdi"
+    item_image: "img"
+    item_image_attrs: ["data-src", "data-large_image", "src", "srcset"]
+    pagination_pages: "nav.woocommerce-pagination a.page-numbers, a.page-numbers"
+    pagination_next: "nav.woocommerce-pagination a.next.page-numbers, a.next.page-numbers"
+
+  product_page:
+    title: "h1.product_title, h1.entry-title, h1"
+    product_id: "button[name='add-to-cart'][value], input[name='product_id'][value], form.cart [name='add-to-cart'][value], form.variations_form[data-product_id]"
+    sku: ".sku_wrapper .sku"
+    price: "p.price .woocommerce-Price-amount bdi, .summary .price .woocommerce-Price-amount bdi"
+    current_price: "p.price ins .woocommerce-Price-amount bdi, .summary .price ins .woocommerce-Price-amount bdi"
+    old_price: "p.price del .woocommerce-Price-amount bdi, .summary .price del .woocommerce-Price-amount bdi"
+    availability: ".stock, .out-of-stock, .in-stock"
+    overview: ".woocommerce-product-details__short-description"
+    description: "#tab-description, .woocommerce-Tabs-panel--description"
+    specs_rows: ".woocommerce-product-attributes tr"
+    image_gallery: ".woocommerce-product-gallery img, .woocommerce-product-gallery__image img, img.wp-post-image"
+    categories: ".posted_in a"

@@ -1,0 +1,41 @@
+# Allani - SSR (httpx + selectolax)
+# Platform: PrestaShop
+base_url: "https://allani.com.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+
+selectors:
+  frontpage:
+    top_level_blocks: "ul#top-menu[data-depth='0'] > li.category"
+    top_level_link: "a.dropdown-item[data-depth='0']"
+    low_level_blocks: "ul[data-depth='1'] > li.category"
+    low_level_link: "a.dropdown-item[data-depth='1']"
+    subcategory_blocks: "ul[data-depth='2'] > li.category"
+    subcategory_link: "a.dropdown-item[data-depth='2']"
+
+  category_page:
+    item_selector: "article.product-miniature.js-product-miniature"
+    item_id_attr: "data-id-product"
+    item_name: ".product-description h3.product-title a"
+    item_url: ".product-description h3.product-title a"
+    item_image: ".dd-product-image a.product-thumbnail img"
+    item_image_attrs: ["data-src", "src"]
+    item_price: ".product-price-and-shipping span.price[itemprop='price']"
+    pagination_next: "ul.pagination a.next.js-search-link[rel='next']"
+    pagination_pages: "ul.page-list li a.js-search-link"
+    pagination_param: "page"
+
+  product_page:
+    title: "h1.h1.product[itemprop='name']"
+    price: ".current-price span[itemprop='price']"
+    brand: ".product-manufacturer a"
+    sku: ".product-reference span[itemprop='sku']"
+    availability: "span#product-availability"
+    description: "[itemprop='description']"
+    image_main: "img.js-qv-product-cover"
+    image_thumbnails: "img.thumb.js-thumb"
+    image_thumb_attr: "data-image-large-src"

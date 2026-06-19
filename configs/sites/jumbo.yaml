@@ -1,0 +1,32 @@
+# Jumbo.tn scraper configuration
+site:
+  name: "jumbo"
+  base_url: "https://jumbo.tn"
+  frontpage_url: "https://jumbo.tn"
+
+frontpage:
+  top_level_blocks: "li.mm_tabs_li.mm_tabs_has_content"
+  top_level_link: ".mm_tab_toggle_title a.ets_mm_url"
+  low_level_blocks: ".ets_mm_block.mm_block_type_category"
+  low_level_header: "span.h4"
+  subcategory_list: "ul.ets_mm_categories"
+  subcategory_link: "a.ets_mm_url"
+
+category_page:
+  wait_selector: "article[data-id-product]"
+  item_selector: "article[data-id-product]"
+  product_id: "[data-id-product]"
+  product_url: "a.thumbnail.product-thumbnail, .product-title a"
+  product_name: ".product-title a, h2 a"
+
+product_page:
+  title: "h1.h1, h1[itemprop='name']"
+  price: ".current-price [itemprop='price'], .current-price"
+  old_price: ".regular-price"
+  discount: ".discount-percentage, .discount-amount"
+  reference: ".product-reference span, [itemprop='sku']"
+  brand: ".product-manufacturer img"
+  stock: "#product-availability, .product-quantities"
+  description: ".product-description, #description"
+  images: ".product-images img, .images-container img"
+  specifications: ".product-features dl, .product-features li"
