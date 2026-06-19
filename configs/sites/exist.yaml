@@ -1,0 +1,47 @@
+# Exist.com.tn - PrestaShop/Alysum, httpx
+base_url: "https://www.exist.com.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+  max_pagination_pages: 120
+
+selectors:
+  frontpage:
+    category_sitemap: "https://www.exist.com.tn/sitemap/category.xml"
+    menu_blocks: ".ets_mm_megamenu .mm_menus_li"
+    menu_links: ".ets_mm_megamenu a[href], .mm_block_type_category a[href], header a[href], footer a[href]"
+    child_links: ".mm_block_type_category a[href], .mm_columns_ul a[href], ul a[href]"
+
+  category_page:
+    item_selector: "article.product-miniature, article.js-product-miniature, .product-miniature"
+    item_url: "h3.product-title a[href], .product-title a[href], a.thumbnail.product-thumbnail[href], a[href*='.html']"
+    item_name: "h3.product-title a, .product-title a, .product-title, [itemprop='name']"
+    item_price: ".price[content], .price"
+    item_old_price: ".regular-price, .product-discount .regular-price"
+    item_discount: ".discount-percentage, .discount-amount, .discount"
+    item_image: ".thumbnail-container img, .product-thumbnail img, img[data-image-large-src], img"
+    pagination_pages: ".pagination a[href], .page-list a[href], ul.page-list a[href]"
+    pagination_next: "link[rel='next'][href], .pagination a[rel='next'][href], a.next[href]"
+    result_count: ".pagination, body"
+
+  product_page:
+    title: "h1.h1, h1[itemprop='name'], h1, meta[property='og:title']"
+    product_id: "#main[data-id_product], input[name='id_product'][value]"
+    variant_id: "#main[data-id_product_attribute]"
+    reference: ".product-reference-top, [itemprop='sku'], meta[itemprop='sku']"
+    price: ".product-prices [itemprop='price'][content], .product-prices .normal-price, .product-prices .product-price, .current-price [itemprop='price']"
+    old_price: ".product-prices .regular-price, .product-discounts .regular-price"
+    discount: ".product-prices .discount, .product-discounts .discount"
+    availability: "#product-availability, .product-availability, .product-add-to-cart, [itemprop='availability']"
+    description: "meta[property='og:description'], #product-description-short, .product-information .product-description, .tabs .product-description, .product-description"
+    full_description: "meta[property='og:description'], #description .product-description, .tabs .product-description"
+    specs_rows: ".product-features .data-sheet tr, .product-features .data-sheet .row, .product-features .data-sheet div"
+    variants: ".product-variants .product-variants-item"
+    data_product: "#product-details[data-product]"
+    image_gallery: ".images-container img, .product-cover img, .thumb-container img, img[itemprop='image']"
+    breadcrumbs: "nav.breadcrumb a[href], .breadcrumb a[href]"

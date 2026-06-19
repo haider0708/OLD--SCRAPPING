@@ -1,0 +1,46 @@
+site_name: "zen"
+base_url: "https://zen.com.tn/fr"
+web_origin: "https://zen.com.tn"
+
+cache_api_base: "https://cache-v3.zen.com.tn/indexes"
+main_api_base: "https://api-v3.zen.com.tn/api"
+cache_token: "dc306e6ed1014b1ea0b9a13996d270aaca500359e4c184bed97f62ca92137a08"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_size: 12
+  max_pages: 200
+
+selectors:
+  frontpage:
+    desktop_menu: ".navbar-container .menu-wrap .menu-item > a.item-link[href]"
+    mobile_menu: ".mobile-menu .mob-sub-menu-item a[href], .mob-menu-wrap a[href]"
+    category_links: "a[href^='/fr/'][href*='-'], a[href*='zen.com.tn/fr/'][href*='-']"
+
+  category_api:
+    primary_endpoint: "categories/search"
+    fallback_endpoint: "all-categories/search"
+    navbar_endpoint: "web-navbar/search"
+
+  category_page:
+    product_card: ".product-box"
+    product_url: ".carousel-wrapper a[href], a[href*='/fr/produit/']"
+    name: ".product-title"
+    price: ".product-price .current-price span, .current-price span"
+    old_price: ".old-price, .regular-price"
+    image: ".carousel-item.active img, .carousel-item img, img"
+    color: ".product-variants .color-box[title]"
+
+  pagination:
+    method: "api_offset"
+    page_param: "page"
+    page_size: 12
+
+  product_page:
+    title: "h1, title"
+    metadata_script: "#zen-product-data"
+    description: ".product-description, .description"
+    image: ".product-cover img, .product-images img, .js-thumb, img"

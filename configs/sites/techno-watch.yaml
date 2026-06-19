@@ -1,0 +1,61 @@
+# TechnoWatch - Converty React storefront with public JSON API.
+
+site_name: "techno-watch"
+base_url: "https://technowatch-tn.converty.shop/"
+api_base_url: "https://technowatch-tn.converty.shop/api/v1"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+  page_size: 10
+  max_pages: 100
+
+headers:
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+  Accept-Language: "fr-FR,fr;q=0.9,en;q=0.8"
+
+fixed_categories:
+  - name: "Montres Homme"
+    url: "https://technowatch-tn.converty.shop/category/vetements"
+    slug: "vetements"
+    category_id: "6976325f94e1d170e96e2ed6"
+  - name: "Montres Femme"
+    url: "https://technowatch-tn.converty.shop/category/sacs"
+    slug: "sacs"
+    category_id: "6976325f94e1d170e96e2ed2"
+
+selectors:
+  frontpage:
+    store_data: "script#storeData"
+    category_endpoint: "/categories?page=1&limit=20"
+
+  categories:
+    primary_endpoint: "/categories"
+    category_url: "/category/{slug}"
+    allowed_slugs: ["vetements", "sacs"]
+
+  category_page:
+    synthetic_payload: "script#techno-watch-listing-data"
+    product_card: "article.product-card"
+    product_url: "a.product-link[href]"
+    product_name: ".product-title"
+    product_price: ".price"
+    product_old_price: ".old-price"
+    product_discount: ".discount"
+    product_availability: ".availability"
+    product_image: "img.product-image"
+
+  pagination:
+    method: "api_page"
+    page_param: "page"
+    page_size: 10
+
+  product_page:
+    product_json: "script#productData"
+    title: "meta[property='og:title'][content], title"
+    description: "meta[name='description'][content]"
+    image: "meta[property='og:image'][content]"

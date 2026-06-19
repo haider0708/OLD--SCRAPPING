@@ -1,0 +1,50 @@
+# Mabrouk.tn - WordPress/WooCommerce + Stockie, httpx
+base_url: "https://mabrouk.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+  max_pagination_pages: 120
+
+selectors:
+  frontpage:
+    product_cat_api: "https://mabrouk.tn/wp-json/wp/v2/product_cat"
+    store_categories_api: "https://mabrouk.tn/wp-json/wc/store/v1/products/categories"
+    category_sitemap: "https://mabrouk.tn/product_cat-sitemap.xml"
+    fallback_links: "header nav a[href], .site-header a[href], .menu a[href], footer a[href]"
+
+  category_page:
+    item_selector: "ul.products li.product, .products .product"
+    item_url: "a[href*='/produit/']"
+    item_id: "a.add_to_cart_button[data-product_id], [data-product_id]"
+    item_sku: "a.add_to_cart_button[data-product_sku], [data-product_sku]"
+    item_price: ".price"
+    item_current_price: "ins .woocommerce-Price-amount, .price .woocommerce-Price-amount, .price"
+    item_old_price: "del .woocommerce-Price-amount, .price del .woocommerce-Price-amount"
+    item_discount: ".onsale, .discount"
+    item_image: "img.wp-post-image, img.attachment-woocommerce_thumbnail, img.wvs-archive-product-image, img"
+    item_image_attrs: ["data-large_image", "data-src", "data-lazy-src", "src", "srcset"]
+    result_count: ".woocommerce-result-count"
+    pagination_pages: ".page-numbers[href], a.page-numbers[href]"
+    pagination_next: ".next.page-numbers[href], a.next.page-numbers[href]"
+    store_products_api: "https://mabrouk.tn/wp-json/wc/store/v1/products"
+
+  product_page:
+    title: "h1.product_title, h1.entry-title, h1"
+    product_id: "form.variations_form[data-product_id], input[name='product_id'][value], button[name='add-to-cart'][value], form.cart [name='add-to-cart'][value]"
+    sku: ".sku_wrapper .sku, span.sku, [itemprop='sku']"
+    price: ".summary .price .woocommerce-Price-amount, p.price .woocommerce-Price-amount, .summary .price, p.price"
+    current_price: ".summary .price ins .woocommerce-Price-amount, p.price ins .woocommerce-Price-amount, .summary .price .woocommerce-Price-amount, p.price .woocommerce-Price-amount"
+    old_price: ".summary .price del .woocommerce-Price-amount, p.price del .woocommerce-Price-amount"
+    availability: ".summary .stock, form.variations_form .stock, form.cart .stock"
+    description: ".wc-tabs-wrapper, .woocommerce-tabs, .summary"
+    specs_rows: "table.variations tr, table.shop_attributes tr, table.woocommerce-product-attributes tr"
+    variations_form: "form.variations_form[data-product_variations]"
+    variation_items: ".variable-items-wrapper li[data-attribute_name]"
+    image_gallery: ".woocommerce-product-gallery img, .woo-product-gallery img, .gimg, img.wp-post-image, meta[property='og:image']"
+    breadcrumbs: ".product_meta a[href*='/categorie-produit/'], .breadcrumbs a[href*='/categorie-produit/']"
+    brand: ".product-brands a, .brand a"

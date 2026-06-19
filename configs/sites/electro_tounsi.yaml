@@ -1,0 +1,52 @@
+# Electro Tounsi - WordPress/WooCommerce + Woodmart, httpx
+base_url: "https://et.com.tn"
+display_name: "Electro Tounsi"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+  max_pagination_pages: 80
+
+selectors:
+  frontpage:
+    top_level_items: "ul.wd-nav-vertical > li.menu-item"
+    fallback_links: "ul.wd-nav-vertical a[href*='/categorie-produit/'], .mobile-categories-menu a[href*='/categorie-produit/'], .wd-nav-mobile a[href*='/categorie-produit/'], footer a[href*='/categorie-produit/']"
+    sitemaps:
+      - "https://et.com.tn/sitemap.xml"
+      - "https://et.com.tn/product_cat-sitemap.xml"
+
+  category_page:
+    item_selector: ".products div.wd-product.product-grid-item, .products div.wd-product.product"
+    item_url: ".wd-entities-title a[href], h3.wd-entities-title a[href], h2.wd-entities-title a[href], a.product-image-link[href]"
+    item_id: "a.add_to_cart_button[data-product_id], button[data-product_id], [data-product_id], [data-id]"
+    item_sku: "a.add_to_cart_button[data-product_sku], button[data-product_sku], [data-product_sku]"
+    item_price: "span.price span.woocommerce-Price-amount bdi, span.price"
+    item_current_price: "span.price ins span.woocommerce-Price-amount bdi, span.price ins bdi"
+    item_old_price: "span.price del span.woocommerce-Price-amount bdi, span.price del bdi"
+    item_discount: ".product-label.onsale, .product-labels .onsale, .onsale"
+    item_image: "a.product-image-link img, img.attachment-woocommerce_thumbnail, img.wp-post-image, img"
+    item_image_attrs: ["data-large_image", "data-src", "data-lazy-src", "src", "srcset"]
+    item_availability: ".wd-product-stock, .stock"
+    pagination_pages: "nav.woocommerce-pagination a.page-numbers[href], ul.page-numbers a.page-numbers[href], a.page-numbers[href]"
+    pagination_current: "nav.woocommerce-pagination span.current, ul.page-numbers span.current, .page-numbers.current"
+    pagination_next: "a.next.page-numbers[href], link[rel='next']"
+
+  product_page:
+    title: "h1.product_title.entry-title, h1.product_title, h1.entry-title, h1"
+    product_id: "button[name='add-to-cart'][value], form.cart [name='add-to-cart'][value], input[name='product_id'][value]"
+    sku: ".sku_wrapper .sku, span.sku"
+    brand: ".wd-product-brands a, .product-brands a, div.product-brands a, .brand a"
+    brand_image: ".wd-product-brands img, .product-brands img, div.product-brands img, .brand img"
+    price: "p.price span.woocommerce-Price-amount bdi, p.price, .summary .price span.woocommerce-Price-amount bdi"
+    current_price: "p.price ins span.woocommerce-Price-amount bdi, .summary .price ins span.woocommerce-Price-amount bdi"
+    old_price: "p.price del span.woocommerce-Price-amount bdi, .summary .price del span.woocommerce-Price-amount bdi"
+    availability: ".summary .stock, .entry-summary .stock, .product-image-summary .stock, form.cart .stock, p.stock"
+    short_description: ".woocommerce-product-details__short-description"
+    description: "#tab-description, .woocommerce-Tabs-panel--description, .wc-tab"
+    specs_rows: "table.shop_attributes tr, table.woocommerce-product-attributes tr"
+    image_gallery: "img.wp-post-image, figure.woocommerce-product-gallery__wrapper img, .woocommerce-product-gallery img, .woocommerce-product-gallery__image img"
+    breadcrumbs: ".woocommerce-breadcrumb a, nav.woocommerce-breadcrumb a, .breadcrumb a"

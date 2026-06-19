@@ -1,0 +1,48 @@
+# Praga.tn - PrestaShop, httpx/selectolax
+base_url: "https://praga.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+  max_pagination_pages: 120
+
+selectors:
+  frontpage:
+    sitemap: "https://praga.tn/sitemap.xml"
+    menu_links: ".ets_mm_megamenu a[href], #header a[href], header a[href], footer a[href]"
+
+  category_page:
+    item_selector: "article.product-miniature, article.js-product-miniature, .thumbnail-container.product-miniature"
+    item_url: "a.product_name[href], a.thumbnail.product-thumbnail[href], a[href*='.html']"
+    item_name: "a.product_name[href], .product_name, [itemprop='name']"
+    item_brand: ".manufacturer a, .manufacturer"
+    item_reference: ".references-list"
+    item_price: ".product-price-and-shipping .price, .price"
+    item_old_price: ".product-price-and-shipping .regular-price, .regular-price"
+    item_discount: ".discount-percentage, .discount-product, .product-flag .discount, .discount"
+    item_image: ".thumbnail-container img, .product-thumbnail img, img[data-full-size-image-url], img"
+    item_availability: ".availability-list, .availability"
+    pagination_pages: "link[rel='next'][href], .pagination a[href], .page-list a[href], nav.pagination a[href]"
+    pagination_next: "link[rel='next'][href], .pagination a[rel='next'][href], .page-list a.next[href], a.next[href]"
+    result_count: ".products-selection, #js-product-list-top, .total-products, body"
+
+  product_page:
+    title: "h1.h1.namne_details, h1.h1, h1, meta[property='og:title']"
+    product_id: "#product-details[data-product], input[name='id_product'][value]"
+    reference: ".product-reference, .product-reference-top, [itemprop='sku'], meta[itemprop='sku']"
+    brand: ".product-manufacturer a, .manufacturer a, [itemprop='brand']"
+    price: ".product-prices .price, .product-price .current-price .price, [itemprop='price'][content]"
+    old_price: ".product-prices .regular-price, .product-discount .regular-price"
+    discount: ".product-prices .discount, .product-discounts .discount, .discount-percentage"
+    availability: "#product-availability, .product-availability, .product-add-to-cart, [itemprop='availability']"
+    description: "meta[property='og:description'], #product-description-short, .product-information .product-description, .tabs .product-description, .product-description"
+    full_description: "meta[property='og:description'], #description .product-description, .tabs .product-description"
+    specs_rows: ".product-features .data-sheet tr, .product-features .data-sheet .row, .product-features .data-sheet div"
+    variants: ".product-variants .product-variants-item"
+    data_product: "#product-details[data-product]"
+    image_gallery: ".images-container img, .product-cover img, .thumb-container img, img[itemprop='image'], meta[property='og:image']"
+    breadcrumbs: "nav.breadcrumb a[href], .breadcrumb a[href]"

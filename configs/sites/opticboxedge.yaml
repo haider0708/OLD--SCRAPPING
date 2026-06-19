@@ -1,0 +1,37 @@
+# OpticBox Edge - Converty storefront with public JSON APIs
+base_url: "https://opticboxedge.shop"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+  max_pagination_pages: 10
+
+api:
+  products_endpoint_template: "https://opticboxedge.shop/api/v1/products?page={page}&limit=12&categoryIds="
+  categories_endpoint: "https://opticboxedge.shop/api/v1/categories?page=1&limit=20"
+  product_url_template: "https://opticboxedge.shop/product/{slug}"
+  page_limit: 12
+
+headers:
+  Accept: "application/json, text/html, */*"
+  Referer: "https://opticboxedge.shop/"
+
+selectors:
+  category_page:
+    # Rendered Converty fallback only; primary listings use the public JSON API.
+    item_selector: "a[href^='/product/'], a[href*='/product/'], img[alt][src*='cdn.converty.shop/images']"
+    item_url: "a[href^='/product/'], a[href*='/product/']"
+    item_name: "img[alt]"
+    item_price_text: "body"
+    item_image: "img[alt][src*='cdn.converty.shop/images']"
+
+  product_page:
+    # Primary details use script#productData on /product/<slug> pages.
+    product_data_script: "script#productData[type='application/json'], script#productData"
+    title: "h1, meta[property='og:title']"
+    description: "meta[property='og:description'], meta[name='description']"
+    images: "script#productData, img[src*='cdn.converty.shop/images'], meta[property='og:image']"

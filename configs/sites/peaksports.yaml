@@ -1,0 +1,49 @@
+# PeakSports.tn - Shopify storefront, HTTP + JSON endpoints
+base_url: "https://www.peaksports.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+  page_size: 250
+  max_pages: 50
+
+endpoints:
+  collections_api: "https://www.peaksports.tn/collections.json?limit=250"
+  collection_products_template: "https://www.peaksports.tn/collections/{handle}/products.json?limit={limit}&page={page}"
+  product_json_template: "https://www.peaksports.tn/products/{handle}.json"
+
+selectors:
+  frontpage:
+    top_menu_items: "header ul.main-nav > li > details"
+    menu_links: "header a[href*='/collections/'], nav a[href*='/collections/'], footer a[href*='/collections/'], a[href*='/collections/']"
+    child_groups: "nav-menu.js-mega-nav"
+    child_dropdown_links: "ul.child-nav a[href*='/collections/']"
+    grandchild_links: "ul.main-nav__grandchild a[href*='/collections/']"
+
+  category_page:
+    item_selector: "product-card.card--product, product-card, .card.card--product"
+    item_url: "a.card-link[href*='/products/'], a.js-prod-link[href*='/products/'], a[href*='/products/']"
+    item_name: ".card__title a, .card__title, a.card-link"
+    item_price: ".price__current .js-value, .price__current"
+    item_old_price: ".price__was .js-value, .price__was"
+    item_discount: ".product-label--sale"
+    item_badges: ".product-label, .product-label--sale, .product-label--sold-out"
+    item_image: "img.card__main-image, .card__media img, img[srcset], img[src]"
+    pagination_next: "link[rel='next'][href], a[rel='next'][href]"
+    pagination_param: "page"
+
+  product_page:
+    title: "h1, .product-info__title, .product-title"
+    price: ".product-info__price .price__current .js-value, .price__current .js-value, .price__current"
+    old_price: ".product-info__price .price__was .js-value, .price__was .js-value, .price__was"
+    sku: ".product-vendor-sku, [itemprop='sku'], .sku"
+    availability: "[itemprop='availability'], .product-label--sold-out, .price__no-variant"
+    description: ".product-description, .product-details .rte, .disclosure__content.rte.product-description"
+    image_gallery: ".media-viewer img.product-image, .product-media img.product-image, .product-media img[src], img[itemprop='image']"
+    variants: "select[name='id'] option"
+    jsonld: "script[type='application/ld+json']"
+    embedded_product_json: ".product-info script[type='application/json']"
