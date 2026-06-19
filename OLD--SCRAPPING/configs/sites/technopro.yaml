@@ -1,0 +1,129 @@
+# ============================================================
+# Technopro-Online.com Scraper Configuration
+# ============================================================
+# Site: https://www.technopro-online.com (Tunisian E-commerce)
+# Platform: PrestaShop-based (similar to TunisiaNet)
+
+site_name: "technopro"
+base_url: "https://www.technopro-online.com"
+
+# === SCRAPER SETTINGS ===
+settings:
+  max_retries: 3
+  retry_delay: 5
+  max_consecutive_failures: 10
+  page_timeout: 60000
+  wait_after_load: 3
+
+# === SELECTORS ===
+selectors:
+  # --- FRONTPAGE (Category Hierarchy) ---
+  frontpage:
+    # Navigation container
+    nav_container: "#cbp-hrmenu"
+    
+    # Top-level category tabs (13 total)
+    # Structure: li#cbp-hrmenu-tab-N containing a.nav-link
+    top_level_blocks: "li[id*='cbp-hrmenu-tab']"
+    top_level_link: "a.nav-link"
+    
+    # Submenu container within tabs
+    submenu_container: ".cbp-hrsub"
+    
+    # Low-level categories (menu columns with headers)
+    # Structure: .cbp-menu-column > strong > a/span
+    low_level_blocks: ".cbp-menu-column"
+    low_level_header: "strong span"
+    low_level_link: "strong a"
+    
+    # Subcategories (list items within columns)
+    # Structure: ul > li > a
+    subcategory_blocks: "ul li"
+    subcategory_link: "a"
+
+  # --- CATEGORY PAGE (Product Listings) ---
+  category_page:
+    wait_selector: "article.product-miniature"
+    
+    # Product list container
+    product_list: "#js-product-list"
+    products_container: "#js-product-list div.products.row"
+    
+    # Product item container
+    item_selector: "#js-product-list article.product-miniature"
+    
+    # Within each item:
+    product_id_selector: "article[data-id-product]"
+    product_id_attr: "data-id-product"
+    product_link: "a.product-thumbnail, .thumbnail-container a"
+    product_title: ".product-title a"
+    product_price: ".product-price-and-shipping .price"
+    product_image: ".thumbnail-container img"
+    product_reference: ".product-reference"
+    product_availability: ".product-availability"
+    
+    # Pagination (PrestaShop standard)
+    pagination_container: "#js-product-list-top nav, .pagination"
+    pagination_next: "a.next"
+    pagination_links: ".pagination a"
+    pagination_param: "page"  # ?page=2
+
+  # --- PRODUCT PAGE (Detail Scraping) ---
+  product_page:
+    # Title
+    title: "h1.h1, h1[itemprop='name'], h1.product-name"
+    
+    # SKU/Reference
+    sku: ".product-reference span, span[itemprop='sku']"
+    
+    # Brand
+    brand: ".product-manufacturer span, [itemprop='brand'] span"
+    brand_img: ".product-manufacturer img"
+    
+    # Pricing
+    price: "[itemprop='price'], .current-price span"
+    price_attr: "content"
+    old_price: ".regular-price"
+    discount: ".discount-percentage, .discount"
+    
+    # Stock
+    stock: "#product-availability, .product-availability"
+    
+    # Description
+    description: "#description .product-description, .product-description"
+    short_description: "#product-description-short, .product-description-short"
+    
+    # Specifications (data-sheet)
+    specs_container: ".product-features, .data-sheet, .product-information"
+    specs_row: ".data-sheet dl, .product-features dl"
+    specs_name: "dt.name"
+    specs_value: "dd.value"
+    
+    # Images
+    main_image: ".product-cover img, .product-images img:first-child"
+    main_image_attr: "data-full-size-image-url"
+    gallery_images: ".product-images img, .images-container img, .js-thumb img"
+
+# === CATEGORIES ===
+# Main categories extracted from frontpage navigation:
+# - Chauffage (no submenu)
+# - Informatique (Ordinateurs, Serveurs, Tablettes, Logiciels, Composants, Accessoires, Apple)
+# - Gaming (PC Gaming, Composants, Consoles, Périphériques, Accessoires)
+# - Téléphonie (Smartphones, Téléphones fixes, Smart Watch, Fax, Accessoires)
+# - Impression (Imprimantes, Photocopieurs, Scanners, Consommables, Fax, Sublimation)
+# - TV-Son-Photo (Photo/Vidéo, Projection, TV, Son, Récepteurs, Instruments)
+# - Electroménager (Cuisine, Café, Beauté, Gros électro, Climatisation)
+# - Réseaux-Sécurité (Réseaux, Sécurité/Biométrie, Onduleurs, Vidéo Surveillance)
+# - Bureautique (Fournitures scolaires)
+# - Meuble Informatique
+# - Maison et Mode (Sacs, Jardinage, Plomberie)
+# - Moto | Sport & Loisirs
+
+# === NOTES ===
+# - PrestaShop platform (similar to TunisiaNet)
+# - Uses JavaScript to render product listings
+# - Navigation uses mega-menu with cbp-hrmenu structure
+# - Products typically 12-24 per page
+# - Pagination uses ?page=N query parameter
+# - Product ID is on article element with data-id-product attribute
+# - Product pages need 3-5s wait for full JS rendering

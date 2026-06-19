@@ -1,0 +1,8 @@
+# lagrandepara.tn - Shopify, httpx
+base_url: "https://lagrandepara.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30

@@ -1,0 +1,8 @@
+# www.petit-bateau.tn - Magento 2 (MGS Claue theme), httpx
+base_url: "https://www.petit-bateau.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30

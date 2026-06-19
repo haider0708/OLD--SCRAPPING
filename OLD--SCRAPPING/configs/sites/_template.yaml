@@ -1,0 +1,85 @@
+# ============================================================
+# Site Scraper Configuration Template
+# ============================================================
+# Copy this file and rename to {site_name}.yaml
+# Then fill in the selectors specific to your target site
+
+site_name: "example_site"
+base_url: "https://www.example.tn"
+
+# === SCRAPER SETTINGS ===
+settings:
+  max_retries: 3              # Number of retry attempts per request
+  retry_delay: 5              # Base delay in seconds (exponential backoff)
+  max_consecutive_failures: 10 # Skip remaining after this many consecutive fails
+  page_timeout: 60000         # Page load timeout in milliseconds
+  wait_after_load: 2          # Seconds to wait after page loads (for JS)
+
+# === SELECTORS ===
+# All selectors use CSS selector syntax
+# Test selectors in browser DevTools: document.querySelectorAll("your_selector")
+
+selectors:
+  # --- FRONTPAGE (Category Hierarchy) ---
+  # These extract the category tree from the homepage
+  frontpage:
+    # Top-level category containers
+    top_level_blocks: ".nav-item.level-1"
+    top_level_title: "a.nav-link"
+    
+    # Second-level categories (within each top-level)
+    low_level_blocks: ".submenu-item"
+    low_level_title: "a"
+    low_level_link: "a"
+    
+    # Third-level subcategories (deepest level)
+    subcategory_blocks: ".sub-submenu-item"
+    subcategory_title: "a"
+    subcategory_link: "a"
+
+  # --- CATEGORY PAGE (Product Listings) ---
+  # These extract products from category/listing pages
+  category_page:
+    # Selector to wait for (indicates page is loaded)
+    wait_selector: ".product-item"
+    
+    # Container for each product on listing
+    item_selector: ".product-item"
+    
+    # Within each product item:
+    product_id_attr: "data-id"           # Attribute containing product ID
+    product_container: ".product-card"    # Inner container
+    product_link: "a.product-link"        # Link to product page
+    product_title: ".product-name"        # Product title element
+    product_price: ".product-price"       # Price element (optional)
+    product_image: "img.product-image"    # Image element (optional)
+    
+    # Pagination selectors
+    pagination_active: ".pagination .active"
+    pagination_links: ".pagination a"
+    pagination_next: ".pagination .next"
+    
+    # URL pattern for pagination (common patterns):
+    # - Query param: pagination_param: "page" → ?page=2
+    # - Path based: pagination_pattern: "/page/{n}" → /category/page/2
+    pagination_param: "page"
+
+  # --- PRODUCT PAGE (Detail Scraping) - Optional ---
+  # These extract details from individual product pages
+  product_page:
+    title: "h1.product-title"
+    price: ".price-current"
+    old_price: ".price-old"
+    description: ".product-description"
+    images: ".gallery img"
+    sku: ".product-sku"
+    availability: ".stock-status"
+    brand: ".product-brand"
+    specifications: ".specs-table tr"
+    
+# === NOTES ===
+# Add any site-specific notes here:
+# - Does the site use JavaScript rendering? (requires Playwright)
+# - Any rate limiting observed?
+# - Special pagination handling needed?
+# - Products per page?

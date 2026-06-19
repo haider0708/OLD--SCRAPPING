@@ -1,0 +1,41 @@
+# SIG Shop - Fast scraper
+# Platform: WordPress + WooCommerce (Electro theme)
+base_url: "https://sig-shop.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+
+selectors:
+  frontpage:
+    nav_container: "ul#menu-menu-1"
+    top_level_blocks: "ul#menu-menu-1 > li.menu-item"
+    top_level_link: "a"
+    low_level_items: "ul.sub-menu > li.menu-item > a"
+    sub_items: "ul.sub-menu > li.menu-item > ul.sub-menu > li > a"
+
+  category_page:
+    item_selector: "li.product.type-product, ul.products li.product"
+    item_name: "h2.woocommerce-loop-product__title"
+    item_url: "a.woocommerce-LoopProduct-link"
+    item_image: "img.attachment-woocommerce_thumbnail, img.wp-post-image"
+    item_image_attrs: ["src", "data-src"]
+    item_price: "span.price ins span.woocommerce-Price-amount, span.price span.woocommerce-Price-amount"
+    item_old_price: "span.price del span.woocommerce-Price-amount"
+    pagination_next: "a.next.page-numbers"
+
+  product_page:
+    title: "h1.product_title.entry-title"
+    price: "p.price ins span.woocommerce-Price-amount bdi, p.price span.woocommerce-Price-amount bdi"
+    old_price: "p.price del span.woocommerce-Price-amount bdi"
+    sku: "span.sku"
+    brand: "div.product_meta span.posted_in a"
+    availability: "p.stock"
+    description: "div.woocommerce-product-details__short-description"
+    image_main: "div.woocommerce-product-gallery__image img"
+    image_thumbnails: "ol.flex-control-thumbs li img"
+    image_thumb_attr: "src"

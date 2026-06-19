@@ -1,0 +1,49 @@
+# Pstore.tn - WordPress/WooCommerce + Woodmart/Elementor, httpx
+base_url: "https://pstore.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+
+selectors:
+  frontpage:
+    mobile_menu: "ul.mobile-pages-menu.menu#menu-pstore-main-menu-1, ul.mobile-pages-menu.menu"
+    fallback_links: ".menu a[href], header a[href], nav a[href]"
+    sitemap_url: "https://pstore.tn/product_cat-sitemap.xml"
+
+  category_page:
+    item_selector: "div.wd-product.product.type-product, div.product.type-product"
+    item_id: "a.add_to_cart_button[data-product_id], a.button[data-product_id], [data-product_id]"
+    item_sku: "a.add_to_cart_button[data-product_sku], a.button[data-product_sku], [data-product_sku]"
+    item_url: ".wd-entities-title a[href*='/produit/'], h3 a[href*='/produit/'], a.product-image-link[href*='/produit/'], a[href*='/produit/']"
+    item_price: ".price .woocommerce-Price-amount bdi, .woocommerce-Price-amount bdi, bdi"
+    item_current_price: "ins .woocommerce-Price-amount bdi, .price ins .woocommerce-Price-amount bdi"
+    item_old_price: "del .woocommerce-Price-amount bdi, .price del .woocommerce-Price-amount bdi"
+    item_discount: ".onsale.product-label, .product-label.onsale"
+    item_brand: ".wd-product-brands a"
+    item_categories: ".wd-product-cats a"
+    item_image: "img"
+    item_image_attrs: ["data-src", "data-large_image", "src", "srcset"]
+    pagination_pages: "nav.woocommerce-pagination a.page-numbers, a.page-numbers"
+    pagination_next: "nav.woocommerce-pagination a.next.page-numbers, a.next.page-numbers"
+
+  product_page:
+    title: "h1.product_title, h1.entry-title, h1"
+    product_id: "input[name='product_id'][value], button[name='add-to-cart'][value], form.cart [name='add-to-cart'][value], form.variations_form[data-product_id]"
+    sku: ".sku_wrapper .sku"
+    brand: ".wd-product-brands a"
+    price: "p.price .woocommerce-Price-amount bdi, .summary .price .woocommerce-Price-amount bdi"
+    current_price: "p.price ins .woocommerce-Price-amount bdi, .summary .price ins .woocommerce-Price-amount bdi"
+    old_price: "p.price del .woocommerce-Price-amount bdi, .summary .price del .woocommerce-Price-amount bdi"
+    availability: ".stock, .out-of-stock, .in-stock"
+    overview: ".woocommerce-product-details__short-description"
+    description: "#tab-description, .woocommerce-Tabs-panel--description"
+    specs_rows: ".woocommerce-product-attributes tr"
+    variations_form: "form.variations_form[data-product_variations]"
+    variation_options: "table.variations tr"
+    image_gallery: ".woocommerce-product-gallery img, .product-image-summary img, img.wp-post-image"
+    categories: ".posted_in a"

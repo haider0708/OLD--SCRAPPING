@@ -1,0 +1,46 @@
+# JMB Tunisie - WordPress/WooCommerce + Machic theme, httpx
+base_url: "https://jmb.com.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+
+selectors:
+  frontpage:
+    nav_container: "ul#menu-sidebar-menu.departments-menu, ul.departments-menu.show"
+    top_level_items: "li.menu-item-object-product_cat"
+    top_level_link: "> a[href]"
+    submenu: "> ul.sub-menu"
+    child_category_links: ".widget_product_categories .product-categories > li > a[href]"
+    fallback_links: "header li.menu-item-object-product_cat > a[href], .widget_product_categories a[href]"
+
+  category_page:
+    item_selector: ".products .product.type-product, div.product.type-product"
+    item_url: ".thumbnail-wrapper > a[href], .product-title a"
+    item_name: ".product-title a, .product-title"
+    item_price: "ins .woocommerce-Price-amount.amount, .product-price-cart .price, span.price"
+    item_old_price: "del .woocommerce-Price-amount.amount"
+    item_discount: ".product-badges .badge.onsale, .onsale"
+    item_availability: ".product-message, .stock"
+    item_image: "img[data-src], img[src]"
+    item_image_attrs: ["data-src", "src"]
+    pagination_pages: "nav.woocommerce-pagination a.page-numbers, ul.page-numbers a, a.page-numbers"
+    pagination_current: "nav.woocommerce-pagination span.page-numbers.current, ul.page-numbers span.current, span.page-numbers.current"
+    pagination_next: "nav.woocommerce-pagination a.next.page-numbers, ul.page-numbers a.next, a.next.page-numbers"
+
+  product_page:
+    title: "h1.product_title.entry-title, h1.entry-title, h1"
+    product_id: "body[class], div.product[class]"
+    reference: ".sku_wrapper .sku"
+    price: ".single-product-wrapper .price, .price"
+    old_price: ".single-product-wrapper .price del .woocommerce-Price-amount.amount, del .woocommerce-Price-amount.amount"
+    availability: ".stock, .product-message"
+    short_description: ".woocommerce-product-details__short-description"
+    description: "#tab-description, .woocommerce-Tabs-panel--description"
+    specs_rows: "table.shop_attributes tr, .woocommerce-product-attributes tr"
+    image_gallery: ".woocommerce-product-gallery__image img, .woocommerce-product-gallery img"
+    breadcrumbs: "nav.woocommerce-breadcrumb a"

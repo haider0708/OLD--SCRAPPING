@@ -1,0 +1,42 @@
+# Promouv - Fast scraper
+# Platform: PrestaShop 1.6 (ecolife theme, posmegamenu)
+base_url: "https://www.promouv.com"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+
+selectors:
+  frontpage:
+    nav_container: "#menu_providers, ul.sf-menu"
+    top_level_blocks: "ul.sf-menu > li, #menu_providers .provider_item"
+    top_level_link: "a"
+    low_level_items: "ul.sf-menu > li > ul > li > a"
+    sub_items: "ul.sf-menu > li > ul > li > ul > li > a"
+
+  category_page:
+    item_selector: "ul.product_list li.ajax_block_product, div.product-container"
+    item_name: "h5.product-title a, a.product_img_link"
+    item_url: "h5.product-title a, a.product_img_link"
+    item_image: "img.replace-2x, img.product_list_image"
+    item_image_attrs: ["src", "data-src"]
+    item_price: "span.price.product-price, div.content_price span.price"
+    item_old_price: "span.old-price, span.price_old"
+    pagination_next: "a.next, li.pagination_next a"
+
+  product_page:
+    title: "h1[itemprop='name'], h1.product-name"
+    price: "span[itemprop='price'], span.our_price_display span.price"
+    price_content_attr: "content"
+    old_price: "span.old-price"
+    sku: "span[itemprop='sku'], span.editable"
+    brand: "div.manufacturer-info a, span[itemprop='brand']"
+    availability: "span.availability span"
+    description: "div#short_description_content, div[itemprop='description']"
+    image_main: "img#bigpic, img[itemprop='image']"
+    image_thumbnails: "ul#thumbs_list_frame li a img"
+    image_thumb_attr: "src"

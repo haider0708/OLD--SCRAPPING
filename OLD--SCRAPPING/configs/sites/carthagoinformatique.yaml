@@ -1,0 +1,44 @@
+# Carthago Informatique - WooCommerce + XTS Theme, Cloudflare JS challenge, full Playwright
+base_url: "https://carthagoinformatique.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 3
+  max_consecutive_failures: 10
+  request_timeout: 60
+  page_timeout: 60000
+  wait_after_load: 5
+
+selectors:
+  frontpage:
+    wait_selector: ".xts-nav-menu > ul > li > a, nav ul.xts-nav > li > a"
+    nav_container: ".xts-nav-menu > ul, nav ul.xts-nav"
+    top_level_blocks: "li.menu-item"
+    top_level_link: "a"
+    sub_items: "li.menu-item li.menu-item a"
+
+  category_page:
+    item_selector: "li.product.type-product, .xts-product.type-product, .product-grid-item"
+    item_id_attr: "data-id"
+    item_name: "h2.woocommerce-loop-product__title, .woocommerce-loop-product__title, .product-title"
+    item_url: "a.woocommerce-loop-product__link, a.xts-product-image-link"
+    item_image: "img.attachment-woocommerce_thumbnail, img.wp-post-image, img.xts-img"
+    item_image_attrs: ["src", "data-src", "data-lazy-src"]
+    item_price: "span.woocommerce-Price-amount bdi, .xts-product-price span.woocommerce-Price-amount bdi"
+    item_old_price: "del span.woocommerce-Price-amount bdi"
+    pagination_next: "a.next.page-numbers"
+    pagination_param: "page"
+
+  product_page:
+    title: "h1.product_title, h1.entry-title"
+    price: "span.woocommerce-Price-amount bdi, p.price span.woocommerce-Price-amount bdi"
+    old_price: "del span.woocommerce-Price-amount bdi"
+    sku: "span.sku"
+    brand: ".woocommerce-product-attributes td[data-title='Marque'], .product_meta .brand"
+    availability: "p.stock.in-stock, p.stock.out-of-stock, .stock"
+    description: "div.woocommerce-product-details__short-description, div#tab-description"
+    specs_container: "table.woocommerce-product-attributes"
+    specs_key: "th.woocommerce-product-attributes-item__label"
+    specs_value: "td.woocommerce-product-attributes-item__value"
+    image_main: "div.woocommerce-product-gallery__image img, img.wp-post-image"
+    image_thumbnails: ".woocommerce-product-gallery img, .xts-product-gallery img"

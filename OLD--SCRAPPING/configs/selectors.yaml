@@ -1,0 +1,20 @@
+# Example selectors template. Update these for the target site.
+# Use CSS selectors. Values may be empty until you provide real selectors.
+frontpage:
+  category_blocks: "" # selector that selects each top-level category block
+  category_title: ""  # within a block, selector for category title (text)
+  category_link: ""   # within a block, selector for the category link (href)
+
+category_page:
+  subcategory_blocks: "" # selector that selects each subcategory block
+  subcategory_title: ""
+  subcategory_link: ""
+  item_link: "" # selector to find product URLs on category/subcategory pages
+
+product_page:
+  title: ""
+  price: ""
+  description: ""
+  images: "" # selector that returns image elements
+  sku: ""
+  availability: ""

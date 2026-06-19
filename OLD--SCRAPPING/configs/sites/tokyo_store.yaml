@@ -1,0 +1,54 @@
+# TokyoStores.tn - PrestaShop + Elementor/BitMegaMenu, httpx
+base_url: "https://tokyostores.tn"
+
+settings:
+  max_retries: 3
+  retry_delay: 2
+  max_consecutive_failures: 10
+  request_timeout: 30
+  page_timeout: 30000
+  wait_after_load: 1
+
+selectors:
+  frontpage:
+    nav_container: "nav.cbp-hrmenu.cbp-horizontal"
+    top_level_items: "nav.cbp-hrmenu.cbp-horizontal > ul > li.cbp-hrmenu-tab"
+    top_level_link: "a.nav-link[href]"
+    submenu: ".cbp-hrsub"
+    column: ".cbp-menu-column-inner"
+    category_links: "a.nav-link[href], a.cbp-column-title[href], a[href]"
+    fallback_links: "header nav.header-nav a[href], header .elementor a[href], nav a[href]"
+
+  category_page:
+    item_selector: "#js-product-list article.product-miniature, article.product-miniature.js-product-miniature"
+    item_url: "a.thumbnail.product-thumbnail, h2.product-title a, .product-title a"
+    item_name: "h2.product-title a, .product-title a"
+    item_price: ".product-price-and-shipping .price, span.price"
+    item_old_price: ".regular-price"
+    item_discount: ".product-flag.discount"
+    item_brand: ".product-brand"
+    item_reference: ".product-reference"
+    item_availability: ".product-availability, #product-availability"
+    item_image: "img[data-full-size-image-url], img[data-src], img[src]"
+    item_image_attrs: ["data-full-size-image-url", "data-src", "src"]
+    pagination_pages: ".pagination a.js-search-link, ul.page-list a.js-search-link, nav.pagination a, .pagination a"
+    pagination_next: ".pagination a.next.js-search-link, nav.pagination a.next, .pagination a.next"
+    pagination_param: "page"
+
+  product_page:
+    title: "h1.product_title.h1, h1.h1, h1"
+    product_id: "input#product_page_product_id[name='id_product'][value]"
+    product_id_fallback: "form#add-to-cart-or-refresh input[name='id_product'][value], input[name='id_product'][value]"
+    reference: ".product-reference span, .product-reference"
+    brand_image: ".product-manufacturer img[alt]"
+    brand_link: ".product-manufacturer a"
+    price: ".product-prices .current-price span.price, .current-price .price"
+    old_price: ".product-prices .regular-price, .regular-price"
+    availability: "#product-availability"
+    short_description: "#product-description-short, .product-description[id^='product-description-short']"
+    description: "#description .product-description, #description"
+    specs_key: ".product-features dt, table tr th, table tr td:first-child"
+    specs_value: ".product-features dd, table tr td:last-child"
+    image_main: ".product-cover img"
+    image_gallery: ".images-container img, .thumb-container img"
+    breadcrumbs: "[data-depth] a, [data-depth] span, .breadcrumb li a, .breadcrumb li span, nav.breadcrumb a, nav.breadcrumb span"
