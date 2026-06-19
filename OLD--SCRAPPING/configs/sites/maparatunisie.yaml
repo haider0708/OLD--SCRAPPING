@@ -1,8 +1,0 @@
-# maparatunisie.tn - WooCommerce, httpx
-base_url: "https://www.maparatunisie.tn"
-
-settings:
-  max_retries: 3
-  retry_delay: 2
-  max_consecutive_failures: 10
-  request_timeout: 30

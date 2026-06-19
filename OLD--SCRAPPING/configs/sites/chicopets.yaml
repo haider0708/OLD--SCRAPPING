@@ -1,8 +1,0 @@
-# chicopets.tn - Custom Next.js (streaming JSON), httpx
-base_url: "https://chicopets.tn"
-
-settings:
-  max_retries: 3
-  retry_delay: 2
-  max_consecutive_failures: 10
-  request_timeout: 30

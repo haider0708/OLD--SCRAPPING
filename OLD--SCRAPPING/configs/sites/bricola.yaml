@@ -1,8 +1,0 @@
-# bricola.tn - PrestaShop 1.7, httpx
-base_url: "https://bricola.tn"
-
-settings:
-  max_retries: 3
-  retry_delay: 2
-  max_consecutive_failures: 10
-  request_timeout: 30
