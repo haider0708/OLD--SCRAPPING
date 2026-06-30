@@ -198,8 +198,22 @@ class ElectrochaabaniScraper(FastScraper):
         tree = HTMLParser(html)
         data = {"url": url}
 
-        title_el = tree.css_first("h1, .product-title, .product-name, [itemprop='name']")
-        data["title"] = self._clean(title_el.text(strip=True)) if title_el else None
+        title_el = tree.css_first("h2.title-detail, h1, .product-title, .product-name, [itemprop='name']")
+        if title_el:
+            data["title"] = self._clean(title_el.text(strip=True))
+        else:
+            # Fallback: og:title or <title>
+            og = tree.css_first('meta[property="og:title"]')
+            if og:
+                data["title"] = self._clean((og.attributes.get("content") or "").strip())
+            else:
+                t = tree.css_first("title")
+                if t:
+                    raw = t.text(strip=True)
+                    # Strip suffix like " - Electro Chaabani"
+                    data["title"] = self._clean(re.split(r"\s*[-|]\s*", raw)[0])
+                else:
+                    data["title"] = None
 
         # Custom platform: <div><strong>Référence:</strong> CL0358</div>
         data["sku"] = None
@@ -238,7 +252,12 @@ class ElectrochaabaniScraper(FastScraper):
             data["available"] = None
 
         desc_el = tree.css_first(".product-description, .description, #description, [itemprop='description']")
-        data["description"] = self._clean(desc_el.text(strip=True)) if desc_el else None
+        if desc_el:
+            data["description"] = self._clean(desc_el.text(strip=True))
+        else:
+            # Custom platform fallback: og:description / meta description
+            og = tree.css_first('meta[property="og:description"]') or tree.css_first('meta[name="description"]')
+            data["description"] = self._clean((og.attributes.get("content") or "").strip()) if og else None
 
         images = []
         for img in tree.css(".product-image img, .main-image img, img[itemprop='image'], .product-gallery img"):

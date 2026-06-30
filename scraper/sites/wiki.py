@@ -623,9 +623,13 @@ class WikiScraper(FastScraper):
         )
 
         # SKU
-        sku_el = tree.css_first(pp.get("sku", ".product_meta .sku"))
-        if not sku_el:
-            sku_el = tree.css_first("span.sku")
+        sku_el = (
+            tree.css_first(pp.get("sku", ".product_meta .sku"))
+            or tree.css_first("div.sku_wrapper .sku")
+            or tree.css_first(".brxe-woocommerce-product-meta .sku")
+            or tree.css_first("span.sku")
+            or tree.css_first("[itemprop='sku']")
+        )
         data["sku"] = self._clean_text(sku_el.text(strip=True)) if sku_el else None
 
         # Price — handle sale (del/ins) and regular
@@ -703,9 +707,12 @@ class WikiScraper(FastScraper):
                     data["availability"] = self._clean_text(oos_el.text(strip=True))
                     data["available"] = False
 
-        # Description
-        desc_el = tree.css_first(
-            pp.get("description", ".woocommerce-product-details__short-description")
+        # Description (multi-fallback for Bricks theme variants)
+        desc_el = (
+            tree.css_first(pp.get("description", ".woocommerce-product-details__short-description"))
+            or tree.css_first("div.brxe-woocommerce-product-short-description")
+            or tree.css_first("#tab-description")
+            or tree.css_first(".woocommerce-Tabs-panel--description")
         )
         data["description"] = (
             self._clean_text(desc_el.text(strip=True)) if desc_el else None

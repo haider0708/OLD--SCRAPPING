@@ -233,9 +233,16 @@ class InformaticaScraper(FastScraper):
             prods = await self.scrape_category(cat_info)
             for p in prods:
                 uid = p.get("id") or p.get("url")
-                if uid and uid not in seen_ids:
-                    seen_ids.add(uid)
-                    all_products.append(p)
+                if not uid or uid in seen_ids:
+                    continue
+                seen_ids.add(uid)
+                url = p.get("url")
+                if url:
+                    detail = await self.scrape_product_details(url)
+                    if detail and "error" not in detail:
+                        p.update({k: v for k, v in detail.items() if v})
+                    await asyncio.sleep(0.2)
+                all_products.append(p)
         self.logger.info(f"Total unique products: {len(all_products)}")
         return {"products": all_products, "categories": categories}
 

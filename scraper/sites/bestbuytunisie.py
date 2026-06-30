@@ -96,34 +96,66 @@ class BestBuyTunisieScraper(FastScraper):
         return meta.get("html")
 
     async def fetch_html_with_meta(self, url: str, raise_on_error: bool = False) -> dict:
+        import asyncio
         started = time.monotonic()
         await self._ensure_browser()
-        page = await self._pw_context.new_page()
         status_code = None
         final_url = url
         html = None
         error = None
-        try:
-            resp = await page.goto(url, wait_until="domcontentloaded", timeout=45000)
-            status_code = resp.status if resp else None
-            final_url = page.url
+        # Detect product pages so we wait for product-specific markers, not loop markers.
+        is_product_url = bool(re.search(r"-(tunisie|tunisia)/?$|/produit/|/product/", url)) or "/?p=" in url
+        attempts = 0
+        for attempt in range(1, 4):
+            attempts = attempt
+            ctx = await self._browser.new_context(
+                user_agent=STEALTH_UA,
+                locale="fr-FR",
+            )
+            await ctx.add_init_script(STEALTH_JS)
+            page = await ctx.new_page()
             try:
-                await page.wait_for_selector("div.xts-product.type-product, li.product.type-product", timeout=8000)
-            except Exception:
-                pass
-            html = await page.content()
-            if status_code and status_code >= 400:
-                error = f"HTTP {status_code}"
-            elif not html or not html.strip():
-                error = "empty_response"
-            elif is_blocked_response(html, status_code):
-                error = "blocked_response"
-        except Exception as e:
-            error = str(e) or e.__class__.__name__
-            if raise_on_error:
-                raise
-        finally:
-            await page.close()
+                resp = await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+                status_code = resp.status if resp else None
+                final_url = page.url
+                try:
+                    if is_product_url:
+                        await page.wait_for_selector(
+                            "h1.product_title, div.summary.entry-summary",
+                            timeout=15000,
+                        )
+                    else:
+                        await page.wait_for_selector(
+                            "div.xts-product.type-product, li.product.type-product, h1.product_title",
+                            timeout=10000,
+                        )
+                except Exception:
+                    pass
+                html = await page.content()
+                if status_code and status_code >= 400:
+                    error = f"HTTP {status_code}"
+                elif not html or not html.strip():
+                    error = "empty_response"
+                elif is_blocked_response(html, status_code) or "Just a moment" in (html or "") or "cf-chl" in (html or ""):
+                    error = "blocked_response"
+                else:
+                    error = None
+            except Exception as e:
+                error = str(e) or e.__class__.__name__
+            finally:
+                try:
+                    await page.close()
+                except Exception:
+                    pass
+                try:
+                    await ctx.close()
+                except Exception:
+                    pass
+            if not error:
+                break
+            # Backoff then retry with a fresh context
+            await asyncio.sleep(2 + 2 * attempt)
+            html = None  # discard challenge HTML
         blocked_signals = detect_blocked_signals(html, status_code)
         if raise_on_error and error:
             raise RuntimeError(error)
@@ -133,7 +165,7 @@ class BestBuyTunisieScraper(FastScraper):
             "final_url": final_url,
             "content_type": None,
             "content_encoding": None,
-            "attempts": 1,
+            "attempts": attempts,
             "elapsed_ms": int((time.monotonic() - started) * 1000),
             "blocked_signals": blocked_signals,
             "error": error,
@@ -303,8 +335,20 @@ class BestBuyTunisieScraper(FastScraper):
         data["old_price"] = self._parse_price(del_el.text() if del_el else None)
 
         stock_el = tree.css_first("p.stock")
-        data["availability"] = self._clean_text(stock_el.text(strip=True)) if stock_el else None
-        data["available"] = stock_el is not None and "in-stock" in (stock_el.attributes.get("class") or "")
+        if stock_el:
+            cls = (stock_el.attributes.get("class") or "").lower()
+            txt = self._clean_text(stock_el.text(strip=True))
+            data["availability"] = txt
+            txt_low = (txt or "").lower()
+            out_text = any(x in txt_low for x in (
+                "arrivage", "rupture", "epuise", "épuisé",
+                "sur commande", "backorder", "indisponible",
+            ))
+            out_cls = "out-of-stock" in cls or "available-on-backorder" in cls
+            data["available"] = not (out_cls or out_text) and "in-stock" in cls
+        else:
+            data["availability"] = None
+            data["available"] = False
 
         desc_el = tree.css_first("div.woocommerce-product-details__short-description")
         data["description"] = self._clean_text(desc_el.text(strip=True)) if desc_el else None

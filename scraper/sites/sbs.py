@@ -411,14 +411,25 @@ class SbsScraper(BaseScraper):
         pp = self.selectors.get("product_page", {})
         wait_sel = pp.get("wait_selector", "div.current-price span.price")
 
-        try:
-            await page.goto(product_url, wait_until="domcontentloaded", timeout=15000)
+        last_err = None
+        for attempt in range(2):
             try:
-                await page.wait_for_selector(wait_sel, timeout=3000)
-            except Exception:
-                pass
-        except Exception as e:
-            return {"url": product_url, "error": str(e)}
+                await page.goto(product_url, wait_until="domcontentloaded", timeout=30000)
+                try:
+                    # Wait for the always-present title rather than a JS-injected price
+                    await page.wait_for_selector("h1[itemprop='name'], h1.h1", timeout=12000)
+                except Exception:
+                    try:
+                        await page.wait_for_selector(wait_sel, timeout=5000)
+                    except Exception:
+                        pass
+                last_err = None
+                break
+            except Exception as e:
+                last_err = str(e)
+                continue
+        if last_err is not None:
+            return {"url": product_url, "error": last_err}
 
         data = await page.evaluate(
             """(selectors) => {

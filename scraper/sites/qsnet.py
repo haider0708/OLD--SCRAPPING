@@ -171,8 +171,16 @@ class QsnetScraper(FastScraper):
         data["title"] = self._clean_text(title_el.text(strip=True)) if title_el else None
 
         # WooCommerce SKU field: span.sku_wrapper span.sku → e.g. "TV-TLF-50W3HQ"
-        sku_el = tree.css_first("span.sku_wrapper span.sku, span.sku, [itemprop='sku']")
-        data["sku"] = self._clean_text(sku_el.text(strip=True)) if sku_el else None
+        sku_el = tree.css_first(
+            ".product-sku, span.sku_wrapper span.sku, span.sku, [itemprop='sku']"
+        )
+        if sku_el:
+            sku_text = self._clean_text(sku_el.text(strip=True))
+            # ".product-sku" often contains "SKU: VALUE"
+            sku_text = re.sub(r"^\s*(SKU|UGS|Réf(?:érence)?)\s*[:\-]?\s*", "", sku_text, flags=re.IGNORECASE)
+            data["sku"] = sku_text or None
+        else:
+            data["sku"] = None
 
         brand_el = tree.css_first("div.product_meta span.posted_in a")
         data["brand"] = self._clean_text(brand_el.text(strip=True)) if brand_el else None
@@ -184,9 +192,47 @@ class QsnetScraper(FastScraper):
         del_el = tree.css_first("p.price del span.woocommerce-Price-amount bdi")
         data["old_price"] = self._parse_price(del_el.text() if del_el else None)
 
-        stock_el = tree.css_first("p.stock")
-        data["availability"] = self._clean_text(stock_el.text(strip=True)) if stock_el else None
-        data["available"] = stock_el is not None and "in-stock" in (stock_el.attributes.get("class") or "")
+        # qsnet doesn't always render p.stock; fall back to body class "instock"/"outofstock"
+        # and schema.org meta link.
+        body = tree.css_first("body")
+        body_cls = (body.attributes.get("class") or "").lower() if body else ""
+        product_div = tree.css_first("[class*='post-'][class*='product']")
+        prod_cls = (product_div.attributes.get("class") or "").lower() if product_div else ""
+        all_cls = f"{body_cls} {prod_cls}"
+
+        avail_link = tree.css_first('link[itemprop="availability"]')
+        avail_href = (avail_link.attributes.get("href") or "").lower() if avail_link else ""
+
+        stock_el = tree.css_first("p.stock, .stock")
+        if stock_el:
+            cls = (stock_el.attributes.get("class") or "").lower()
+            txt = self._clean_text(stock_el.text(strip=True))
+            data["availability"] = txt
+            txt_low = (txt or "").lower()
+            out_text = any(x in txt_low for x in (
+                "arrivage", "rupture", "epuise", "épuisé",
+                "sur commande", "backorder", "indisponible",
+            ))
+            in_text = any(x in txt_low for x in ("en stock", "disponible", "in stock"))
+            out_cls = "out-of-stock" in cls or "available-on-backorder" in cls
+            in_cls = "in-stock" in cls
+            data["available"] = in_cls or in_text or (not out_cls and not out_text and bool(txt_low))
+            if out_cls or out_text:
+                data["available"] = False
+        else:
+            # No <p.stock> element — derive from body/product class + schema.org meta.
+            if "outofstock" in all_cls or "out-of-stock" in all_cls:
+                data["availability"] = "Rupture de stock"
+                data["available"] = False
+            elif "instock" in all_cls or "in-stock" in all_cls or "InStock" in avail_href or "instock" in avail_href:
+                data["availability"] = "En stock"
+                data["available"] = True
+            elif "OutOfStock" in avail_href or "outofstock" in avail_href:
+                data["availability"] = "Rupture de stock"
+                data["available"] = False
+            else:
+                data["availability"] = None
+                data["available"] = False
 
         desc_el = tree.css_first("div.woocommerce-product-details__short-description")
         data["description"] = self._clean_text(desc_el.text(strip=True)) if desc_el else None

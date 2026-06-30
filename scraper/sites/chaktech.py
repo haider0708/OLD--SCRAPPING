@@ -157,9 +157,10 @@ class ChaktechScraper(FastScraper):
             # SKU & ID from add-to-cart button (data attrs)
             sku = None
             pid = None
-            sku_btn = card.css_first("a.add_to_cart_button[data-product_sku], a[data-product_sku], button[data-product_sku]")
+            sku_btn = card.css_first("a.add_to_cart_button[data-product_sku], a[data-product_sku], button[data-product_sku], [data-product_sku]")
             if sku_btn:
-                sku = sku_btn.attributes.get("data-product_sku")
+                _sku = sku_btn.attributes.get("data-product_sku") or ""
+                sku = _sku.strip() or None  # treat empty string as missing
                 pid = sku_btn.attributes.get("data-product_id")
             if not pid:
                 m = re.search(r"\bpost-(\d+)\b", cls)
